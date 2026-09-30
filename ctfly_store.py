@@ -306,10 +306,17 @@ class Store:
         adult(row["dob"])
         return row
 
-    def login(self, username, password):
+    def login(self, username, password, portal=None):
+        self.user = None
+        if portal not in (None, 'customer', 'staff'):
+            raise ValueError("Choose Customer Login or Staff / Admin Login.")
         row = self.one("SELECT u.*,m.id member_id FROM users u LEFT JOIN members m ON m.user_id=u.id WHERE (u.username=? OR u.email=?) AND u.active=1", (username.strip(),username.strip()))
         if not row or not password_matches(password, row["password"]):
             raise ValueError("Incorrect username or password.")
+        if portal == 'customer' and row['role'] != 'customer':
+            raise ValueError("This is a staff account. Choose Staff / Admin Login above.")
+        if portal == 'staff' and row['role'] not in ('staff', 'admin'):
+            raise ValueError("This is a customer account. Choose Customer Login above.")
         row.pop("password", None)
         self.user = row
         return row
@@ -330,11 +337,14 @@ class Store:
 
     def google_login(self, identity, dob=None, phone=""):
         # identity must come from google_oauth.sign_in's verified ID token.
+        self.user = None
         sub, email = identity["sub"], identity["email"]
         row = self.one("SELECT u.*,m.id member_id FROM users u LEFT JOIN members m ON m.user_id=u.id WHERE google_sub=?", (sub,))
         if row:
             if not row["active"]:
                 raise ValueError("This account has been deactivated.")
+            if row['role'] != 'customer':
+                raise ValueError("Use Staff / Admin Login with your staff username and password.")
             adult(row["dob"])
             row.pop("password",None)
             self.user = row

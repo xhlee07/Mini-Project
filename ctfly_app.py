@@ -258,6 +258,7 @@ class Application(tk.Tk):
             widget.destroy()
 
     def show_login(self,register=False):
+        self.cancel_google()
         self.clear()
         self.store.user=None
         self.login_mode=register
@@ -313,32 +314,49 @@ class Application(tk.Tk):
                     raise ValueError("Passwords do not match.")
                 self.store.register(values["username"],values["password"],values["name"],values["email"],values["phone"],values["dob"])
             else:
-                self.store.login(values["username"],values["password"])
-            self.shell()
+                self.store.login(values["username"],values["password"],portal=getattr(self,'login_portal',None))
+            self.complete_login()
         except (ValueError,sqlite3.Error) as exc:
             self.login_error.config(text="Username or email is already registered." if isinstance(exc,sqlite3.IntegrityError) else str(exc))
 
+    def complete_login(self):
+        self.cancel_google()
+        self.module='staff' if self.staff else 'stations'
+        self.shell()
+
+    def cancel_google(self):
+        self.oauth_cancel.set()
+        self.oauth_generation=getattr(self,'oauth_generation',0)+1
+        self.oauth_busy=False
+
     def start_google(self):
+        if getattr(self,'login_portal','customer') != 'customer':
+            return
         if getattr(self,"oauth_busy",False):
             return
         self.oauth_busy=True
-        self.oauth_cancel.clear()
+        self.oauth_cancel=threading.Event()
+        cancel=self.oauth_cancel
+        generation=self.oauth_generation
         self.google_button.config(state="disabled",text="Waiting for Google in your browser…")
         self.login_error.config(text="")
         def worker():
             try:
                 from google_oauth import sign_in
-                self.oauth_queue.put((True,sign_in(self.oauth_cancel)))
+                self.oauth_queue.put((generation,True,sign_in(cancel)))
             except Exception as exc:
-                self.oauth_queue.put((False,str(exc)))
+                self.oauth_queue.put((generation,False,str(exc)))
         threading.Thread(target=worker,daemon=True).start()
 
     def poll_oauth(self):
         try:
-            ok,result=self.oauth_queue.get_nowait()
+            generation,ok,result=self.oauth_queue.get_nowait()
         except queue.Empty:
             pass
         else:
+            if generation != self.oauth_generation:
+                self.after(150,self.poll_oauth)
+                return
             self.oauth_busy=False
             if hasattr(self,"google_button") and self.google_button.winfo_exists():
                 self.google_button.config(state="normal",text="G   Continue with Google")
@@ -349,12 +367,14 @@ class Application(tk.Tk):
                     try:
                         user=self.store.google_login(result)
                         if user:
-                            self.shell()
+                            self.complete_login()
                         else:
                             def finish(values):
+                                if generation != self.oauth_generation:
+                                    raise ValueError("This sign-in was cancelled. Close this form and sign in again.")
                                 self.store.google_login(result,values["dob"],values["phone"])
                                 # Defer shell until Form has closed and released its grab.
-                                self.after_idle(self.shell)
+                                self.after_idle(self.complete_login)
                             Form(self,"Complete your Google account",[("dob","Date of birth · YYYY-MM-DD","",None),("phone","Phone","",None)],finish,
                                  note=f"Signed in as {result['email']}. Confirm your date of birth; registration is for adults 18+.")
                     except (ValueError,sqlite3.Error) as exc:

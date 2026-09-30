@@ -1,4 +1,4 @@
-"""CTFLY Neon Arena: photographic cyber lounge UI on the existing five modules.
+"""CTFLY Gaming Club: a branded esports UI on the existing five modules.
 
 Only presentation changes here. Authentication, billing and all business rules
 continue to live in ctfly_store.py and ctfly_app.Application's workflows.
@@ -19,19 +19,42 @@ import ctfly_app as core
 from ctfly_store import now, stamp, money
 
 # Shared widgets and inherited screens use exactly the same design tokens.
-BG = core.BG = "#070a14"
-PANEL = core.PANEL = "#101729"
-SURFACE = core.SURFACE = "#182238"
-BORDER = core.BORDER = "#26344f"
-TEXT = core.TEXT = "#f1f6ff"
-MUTED = core.MUTED = "#98abc9"
-ACCENT = core.ACCENT = "#58e5ff"
-BLUE = core.BLUE = "#9f8bff"
+BG = core.BG = "#101413"
+PANEL = core.PANEL = "#181e1c"
+SURFACE = core.SURFACE = "#242c28"
+BORDER = core.BORDER = "#344039"
+TEXT = core.TEXT = "#f3f5ed"
+MUTED = core.MUTED = "#a1ada4"
+ACCENT = core.ACCENT = "#c6f36b"
+BLUE = core.BLUE = "#91b9fd"
 RED = core.RED = "#ff789d"
 AMBER = core.AMBER = "#ffd487"
 FONT = "Segoe UI"
+DISPLAY = 'Bahnschrift'
+MONO = 'Consolas'
+INK = '#0a0e0c'
 ASSETS = Path(__file__).resolve().parent / "assets"
-label, button = core.label, core.button
+label = core.label
+_base_button = core.button
+
+
+def button(parent,text,command,primary=False,danger=False):
+    widget=_base_button(parent,text,command,primary,danger)
+    widget.configure(padx=13,pady=8,highlightthickness=1,
+                     highlightbackground=RED if danger else ACCENT if primary else BORDER,
+                     activebackground=ACCENT,activeforeground=INK)
+    widget.bind('<Enter>',lambda event:widget.configure(highlightbackground=ACCENT))
+    widget.bind('<Leave>',lambda event:widget.configure(highlightbackground=RED if danger else ACCENT if primary else BORDER))
+    return widget
+
+
+core.button=button
+
+
+def flight_mark(canvas,x,y,size=1,color=ACCENT,tags='mark'):
+    """Small geometric wing used consistently as the CTFLY brand mark."""
+    for points in [(0,0,38,0,28,8,0,8),(0,13,25,13,15,21,0,21),(0,26,13,26,0,39)]:
+        canvas.create_polygon(*[value*size+(x if i%2==0 else y) for i,value in enumerate(points)],fill=color,outline='',tags=tags)
 
 
 @lru_cache(maxsize=24)
@@ -41,7 +64,7 @@ def shade_png(width,height):
     for x in range(width):
         fraction=x/max(1,width-1)
         alpha=int(225*max(0,1-fraction/.7)**.65)
-        row.extend((7,10,20,alpha))
+        row.extend((10,14,12,alpha))
     raw=(b'\0'+bytes(row))*height
     def chunk(kind,data):
         return struct.pack('!I',len(data))+kind+data+struct.pack('!I',zlib.crc32(kind+data)&0xffffffff)
@@ -143,32 +166,39 @@ class Selection:
 
 
 class ViewDeck(tk.Frame):
-    """Vertical contextual navigation instead of a row of notebook tabs."""
+    """A compact horizontal view selector beneath each module's headline."""
     def __init__(self,parent,names,module):
         super().__init__(parent,bg=BG)
         self.frames=[]
         self.buttons=[]
         self.current=0
         self.lazy={}
-        rail=tk.Frame(self,bg=PANEL,width=178,padx=12,pady=18)
+        rail=tk.Frame(self,bg=BG,height=46)
         self.rail=rail
-        rail.pack(side="left",fill="y",padx=(0,18))
+        rail.pack(fill="x",pady=(0,16))
         rail.pack_propagate(False)
-        label(rail,"CONTROL PANEL",8,MUTED,True).pack(anchor="w",padx=8,pady=(0,18))
         self.area=tk.Frame(self,bg=BG)
         self.area.pack(fill="both",expand=True)
         for index,name in enumerate(names):
             frame=tk.Frame(self.area,bg=BG)
             self.frames.append(frame)
             btn=button(rail,name,lambda i=index:self.select(i))
-            btn.configure(anchor="w",font=(FONT,9,"bold"),wraplength=135,pady=11)
-            btn.pack(fill="x",pady=3)
+            btn.configure(anchor="center",font=(FONT,9,"bold"),padx=12,pady=7)
             self.buttons.append(btn)
-        panel=tk.Frame(rail,bg=PANEL)
-        panel.pack(side="bottom",fill="x",padx=8)
-        label(panel,"CTFLY NETWORK",8,ACCENT,True).pack(anchor="w")
-        label(panel,"●  Café online\nMalaysia · UTC+8",8,MUTED,justify="left").pack(anchor="w",pady=(8,0))
+        rail.bind('<Configure>',self.layout)
         self.select(0)
+
+    def layout(self,event=None):
+        width=max(1,self.rail.winfo_width())
+        x=y=0
+        for item in self.buttons:
+            size=item.winfo_reqwidth()
+            if x and x+size>width:
+                x=0
+                y+=46
+            item.place(x=x,y=y,width=min(size,width),height=38)
+            x+=size+6
+        self.rail.configure(height=y+38)
 
     def tabs(self):
         return tuple(str(frame) for frame in self.frames)
@@ -177,12 +207,12 @@ class ViewDeck(tk.Frame):
         frame=tk.Frame(self.area,bg=BG)
         self.frames.insert(index,frame)
         item=button(self.rail,name,lambda:None)
-        item.configure(anchor='w',font=(FONT,9,'bold'),wraplength=135,pady=11)
-        item.pack(fill='x',pady=3,before=self.buttons[index])
+        item.configure(anchor='center',font=(FONT,9,'bold'),padx=12,pady=7)
         self.buttons.insert(index,item)
         for i,btn in enumerate(self.buttons):
             btn.configure(command=lambda n=i:self.select(n))
         self.select(self.current)
+        self.layout()
         return frame
 
     def index(self,target):
@@ -196,7 +226,7 @@ class ViewDeck(tk.Frame):
         self.current=self.index(target)
         for i,frame in enumerate(self.frames):
             frame.pack_forget()
-            self.buttons[i].config(bg="#1b3050" if i==self.current else PANEL,fg=ACCENT if i==self.current else MUTED)
+            self.buttons[i].config(bg=SURFACE if i==self.current else BG,fg=ACCENT if i==self.current else MUTED,highlightbackground=ACCENT if i==self.current else BG)
         self.frames[self.current].pack(fill="both",expand=True)
         callback=self.lazy.pop(str(self.frames[self.current]),None)
         if callback:
@@ -214,7 +244,7 @@ class NeonApplication(core.Application):
             except (AttributeError,OSError):
                 ctypes.windll.user32.SetProcessDPIAware()
         super().__init__(store)
-        self.title("CTFLY | Neon Arena · Gaming Café")
+        self.title("CTFLY | Gaming Club")
         # Fit normal laptop screens rather than forcing an oversized window.
         w=min(1440,self.winfo_screenwidth()-70)
         h=min(930,self.winfo_screenheight()-100)
@@ -239,17 +269,23 @@ class NeonApplication(core.Application):
     def styles(self):
         super().styles()
         style=ttk.Style(self)
-        style.configure("TEntry",fieldbackground="#0c1325",padding=10,bordercolor=BORDER,lightcolor=BORDER,darkcolor=BORDER)
-        style.configure("TCombobox",fieldbackground="#0c1325",padding=9,bordercolor=BORDER,lightcolor=BORDER,darkcolor=BORDER,arrowcolor=ACCENT)
+        style.configure("TEntry",fieldbackground=INK,padding=9,bordercolor=BORDER,lightcolor=BORDER,darkcolor=BORDER)
+        style.configure("TCombobox",fieldbackground=INK,padding=8,bordercolor=BORDER,lightcolor=BORDER,darkcolor=BORDER,arrowcolor=ACCENT)
         style.configure('Compact.TCombobox',padding=(7,3))
         style.configure("Treeview",background=PANEL,fieldbackground=PANEL,rowheight=42,borderwidth=0)
-        style.configure("Treeview.Heading",background="#1a2841",foreground="#b8cae3",padding=(8,11),font=(FONT,8,"bold"),relief='flat',borderwidth=0)
-        style.map("Treeview",background=[("selected","#193d59")],foreground=[("selected",ACCENT)])
-        style.map("TCombobox",fieldbackground=[("readonly","#0c1325")],foreground=[("readonly",TEXT)],selectbackground=[("readonly","#0c1325")])
+        style.configure("Treeview.Heading",background=SURFACE,foreground=MUTED,padding=(8,11),font=(MONO,8,"bold"),relief='flat',borderwidth=0)
+        style.map("Treeview",background=[("selected","#33432b")],foreground=[("selected",ACCENT)])
+        style.map("TCombobox",fieldbackground=[("readonly",INK)],foreground=[("readonly",TEXT)],selectbackground=[("readonly",INK)])
+        style.configure('Vertical.TScrollbar',background=SURFACE,troughcolor=BG,bordercolor=BG,arrowcolor=MUTED)
+        style.map('Vertical.TScrollbar',background=[('active',BORDER),('!active',SURFACE)],arrowcolor=[('disabled',BG)])
 
-    def show_login(self,register=False):
+    def show_login(self,register=False,portal='customer'):
+        self.cancel_google()
         self.clear()
         self.store.user=None
+        self.login_portal=portal
+        crew=portal=='staff'
+        register=register and not crew
         self.login_mode=register
         background=Artwork(self,height=800,shade=False)
         background.pack(fill="both",expand=True)
@@ -261,12 +297,14 @@ class NeonApplication(core.Application):
             else:
                 heading=54
                 left=65
-            background.create_text(left,52,anchor="nw",text="CTFLY",fill=TEXT,font=(FONT,30,"bold"),tags="copy")
+            flight_mark(background,left,28,.42,ACCENT,'copy')
+            background.create_text(left,52,anchor="nw",text="CTFLY",fill=TEXT,font=(DISPLAY,34,"bold"),tags="copy")
             background.create_text(left,117,anchor="nw",text="G A M I N G   C A F É",fill=ACCENT,font=(FONT,9,"bold"),tags="copy")
-            titlefont=tkfont.Font(family=FONT,size=heading,weight='bold')
+            titlefont=tkfont.Font(family=DISPLAY,size=heading,weight='bold')
             title_y=int(height*.31)
-            background.create_text(left,title_y,anchor="nw",text="ENTER THE\nNEXT LEVEL.",fill=TEXT,font=titlefont,tags="copy")
-            background.create_text(left,title_y+titlefont.metrics('linespace')*2+26,anchor="nw",text="Your rig. Your crew. Your arena.",fill="#c6d9f0",font=(FONT,14),tags="copy")
+            background.create_text(left,title_y,anchor="nw",text="BEHIND THE" if crew else "ENTER THE",fill=TEXT,font=titlefont,tags="copy")
+            background.create_text(left,title_y+titlefont.metrics('linespace'),anchor="nw",text="NEXT LEVEL.",fill=ACCENT,font=titlefont,tags="copy")
+            background.create_text(left,title_y+titlefont.metrics('linespace')*2+26,anchor="nw",text="The crew that keeps CTFLY playing." if crew else "Your rig. Your crew. Your arena.",fill="#c6d9f0",font=(FONT,14),tags="copy")
             background.create_line(left,height-90,left+65,height-90,fill=ACCENT,width=3,tags="copy")
             background.create_text(left,height-67,anchor="nw",text="HIGH-PERFORMANCE PCs    /    ESPORTS    /    CAFÉ",fill="#c6d9f0",font=(FONT,9,"bold"),tags="copy")
         background.draw_foreground=draw
@@ -274,19 +312,27 @@ class NeonApplication(core.Application):
         panel.place(relx=1,x=-38,rely=.5,anchor="e",width=550 if register else 440,relheight=.91 if register else .82)
         strip=tk.Frame(panel,bg=ACCENT,height=3)
         strip.pack(fill="x")
+        # Keep both entrances visible even when the form needs scrolling.
+        entrance=tk.Frame(panel,bg=PANEL,padx=20,pady=18)
+        entrance.pack(fill='x')
+        label(entrance,'CHOOSE YOUR SPACE',8,MUTED,True).pack(anchor='w',pady=(0,10))
+        switch=tk.Frame(entrance,bg=PANEL)
+        switch.pack(fill='x')
+        self.portal_buttons={}
+        for text,target in [('Customer Login','customer'),('Staff / Admin Login','staff')]:
+            item=button(switch,text,lambda p=target:self.show_login(portal=p),primary=portal==target)
+            item.configure(font=(FONT,9,'bold'),padx=6,pady=12)
+            item.pack(side='left',fill='x',expand=True,padx=(0,4))
+            self.portal_buttons[target]=item
+        tk.Frame(panel,bg=BORDER,height=1).pack(fill='x',padx=20)
         scroll=core.Scroll(panel,bg=PANEL)
         scroll.pack(fill="both",expand=True)
         box=tk.Frame(scroll.inner,bg=PANEL,padx=30,pady=24)
         box.pack(fill="x")
-        switch=tk.Frame(box,bg=PANEL)
-        switch.pack(fill="x",pady=(0,24))
-        for text,mode in [("SIGN IN",False),("REGISTER",True)]:
-            item=button(switch,text,lambda m=mode:self.show_login(m),primary=register==mode)
-            item.configure(font=(FONT,9,"bold"),pady=10)
-            item.pack(side="left",fill="x",expand=True,padx=(0,5))
-        label(box,"CREATE YOUR PLAYER ID" if register else "WELCOME TO THE ARENA",8,ACCENT,True).pack(anchor="w")
-        label(box,"Join CTFLY." if register else "Welcome back.",26,TEXT,True).pack(anchor="w",pady=(9,5))
-        label(box,"Create an account to unlock your next session." if register else "Sign in. Pick your station. Start playing.",10,MUTED,wraplength=350,justify="left").pack(anchor="w",pady=(0,15))
+        label(box,'STAFF & ADMIN ACCESS' if crew else ('CREATE YOUR PLAYER ID' if register else 'WELCOME TO THE ARENA'),8,ACCENT,True).pack(anchor='w')
+        label(box,'Welcome, crew.' if crew else ('Join CTFLY.' if register else 'Welcome back.'),26,TEXT,True).pack(anchor='w',pady=(9,5))
+        subtitle='Sign in to your roster, attendance and café tools.' if crew else ('Create an account to unlock your next session.' if register else 'Sign in. Pick your station. Start playing.')
+        label(box,subtitle,10,MUTED,wraplength=350,justify='left').pack(anchor='w',pady=(0,15))
         self.login_values={}
         fields=[("username","Username or email"),("password","Password")]
         if register:
@@ -312,48 +358,75 @@ class NeonApplication(core.Application):
                 entry.bind("<Return>",lambda e:self.local_login())
         self.login_error=label(box,"",9,RED,wraplength=350,justify="left")
         self.login_error.pack(anchor="w",pady=(10,3))
-        button(box,"CREATE PLAYER ID  →" if register else "ENTER CTFLY  →",self.local_login,primary=True).pack(fill="x",pady=(4,12))
-        label(box,"OR",8,MUTED).pack(pady=(0,10))
-        self.google_button=button(box,"G    Continue with Google",self.start_google)
-        self.google_button.configure(bg="#eaf0fa",fg="#13213a",activebackground=ACCENT)
-        self.google_button.pack(fill="x")
-        label(box,"18+ venue. Your date of birth is required for booking.",8,MUTED,wraplength=350,justify="left").pack(anchor="w",pady=(16,5))
-        if not register:
-            label(box,"DEMO ACCESS",8,BLUE,True).pack(anchor="w",pady=(15,5))
-            label(box,"admin / Admin@123\nstaff1 / Staff@123   ·   gamer1 / Gamer@123",9,MUTED,justify="left").pack(anchor="w")
+        self.login_submit=button(box,'ENTER STAFF WORKSPACE  →' if crew else ('CREATE PLAYER ID  →' if register else 'LET’S PLAY  →'),self.local_login,primary=True)
+        self.login_submit.pack(fill='x',pady=(4,12))
+        if crew:
+            label(box,'Use the account provided by your manager.\nNeed access? Ask your café administrator.',9,MUTED,wraplength=350,justify='left').pack(anchor='w',pady=(12,5))
+        else:
+            label(box,'OR',8,MUTED).pack(pady=(0,10))
+            self.google_button=button(box,'G    Continue with Google',self.start_google)
+            self.google_button.configure(bg='#eaf0fa',fg='#13213a',activebackground=ACCENT)
+            self.google_button.pack(fill='x')
+            button(box,'Already a player? Sign in' if register else 'New player? Create an account',lambda:self.show_login(not register)).pack(fill='x',pady=(12,0))
+            label(box,'18+ venue. Your date of birth is required for booking.',8,MUTED,wraplength=350,justify='left').pack(anchor='w',pady=(12,5))
 
     def shell(self):
         self.clear()
         self.login_mode=False
-        header=tk.Frame(self,bg="#0b1120",height=78)
-        header.pack(fill="x")
-        header.pack_propagate(False)
-        brand=tk.Frame(header,bg="#0b1120")
-        brand.pack(side="left",padx=(26,28),pady=8)
-        label(brand,"CTFLY",23,TEXT,True).pack(anchor="w")
+        rail=tk.Frame(self,bg=INK,width=202)
+        rail.pack(side='left',fill='y')
+        rail.pack_propagate(False)
+        brand=tk.Canvas(rail,bg=INK,height=126,highlightthickness=0)
+        brand.pack(fill='x',padx=20,pady=(16,0))
+        flight_mark(brand,3,7,.56)
+        brand.create_text(0,38,anchor='nw',text='CTFLY',fill=TEXT,font=(DISPLAY,30,'bold'))
+        brand.create_text(2,98,anchor='nw',text='G A M I N G  C L U B',fill=MUTED,font=(MONO,8))
+        tk.Frame(rail,bg=BORDER,height=1).pack(fill='x',padx=20,pady=(0,20))
+        label(rail,'CAFÉ OPERATIONS' if self.staff else 'YOUR SPACE',8,MUTED,True,padx=22).pack(anchor='w',pady=(0,10))
         self.nav={}
         short={"stations":"PC Arena","shop":"Café Menu","events":"Tournaments","billing":"Membership","staff":"Staff"}
         for key,num,title,subtitle in core.MODULES:
-            nav=button(header,short[key],lambda k=key:self.navigate(k))
-            nav.configure(padx=10,pady=12,font=(FONT,10,"bold"))
-            nav.pack(side="left",padx=3,pady=14)
+            if key=='staff' and not self.staff:
+                continue
+            nav=button(rail,f'{num}   {short[key]}',lambda k=key:self.navigate(k))
+            nav.configure(anchor='w',padx=12,pady=13,font=(FONT,10,"bold"),highlightthickness=0)
+            nav.pack(fill='x',padx=12,pady=4)
             self.nav[key]=nav
-        profile=tk.Frame(header,bg="#0b1120")
-        profile.pack(side="right",padx=20)
-        button(profile,"Log out",self.logout).pack(side="right",padx=(16,0))
+        profile=tk.Frame(rail,bg=INK,padx=20,pady=20)
+        profile.pack(side='bottom',fill='x')
         user=self.store.user
-        label(profile,user["name"][:19],10,TEXT,True).pack(anchor="e")
-        label(profile,user["role"].upper(),8,ACCENT,True).pack(anchor="e",pady=3)
-        tk.Frame(self,bg=BORDER,height=1).pack(fill="x")
-        self.content=tk.Frame(self,bg=BG,padx=24,pady=18)
+        motto=label(profile,'PLAY HARD.\nSTAY SHARP.',14,ACCENT,True,justify='left')
+        motto.pack(anchor='w',pady=(0,22))
+        divider=tk.Frame(profile,bg=BORDER,height=1)
+        divider.pack(fill='x',pady=(0,18))
+        label(profile,user["name"][:19],10,TEXT,True).pack(anchor="w")
+        label(profile,user["role"].upper(),8,MUTED,True).pack(anchor="w",pady=(3,12))
+        self.logout_button=button(profile,"Log out  ↗",self.logout)
+        self.logout_button.pack(fill='x')
+        def fit_sidebar(event):
+            if event.height<820:
+                motto.pack_forget()
+            elif not motto.winfo_manager():
+                motto.pack(anchor='w',pady=(0,22),before=divider)
+        rail.bind('<Configure>',fit_sidebar)
+        stage=tk.Frame(self,bg=BG)
+        stage.pack(fill='both',expand=True)
+        header=tk.Frame(stage,bg=BG,height=58,padx=26)
+        header.pack(fill='x')
+        header.pack_propagate(False)
+        self.main_caption=label(header,'',9,MUTED,True)
+        self.main_caption.pack(side='left')
+        label(header,'●  CAFÉ ONLINE',8,ACCENT,True).pack(side='right')
+        label(header,now().strftime('%a, %d %b').upper(),8,MUTED).pack(side='right',padx=22)
+        footer=tk.Frame(stage,bg=BG,height=24)
+        footer.pack(side='bottom',fill='x')
+        self.status=label(footer,"Welcome to your next session.",8,MUTED,anchor="w",padx=26,pady=5)
+        self.status.pack(side="left",fill="x",expand=True)
+        label(footer,"CTFLY  /  MY",8,MUTED).pack(side="right",padx=26)
+        self.content=tk.Frame(stage,bg=BG,padx=26,pady=4)
         self.content.pack(fill="both",expand=True)
         self.page_host=self.content
         self._page_cache={}
-        footer=tk.Frame(self,bg="#0b1120",height=30)
-        footer.pack(side='bottom',fill="x",before=self.content)
-        self.status=label(footer,"●  CTFLY café network online",8,MUTED,anchor="w",padx=25,pady=7)
-        self.status.pack(side="left",fill="x",expand=True)
-        label(footer,"MALAYSIA / UTC+8",8,MUTED).pack(side="right",padx=25)
         self.navigate(self.module if self.module in self.nav else "stations")
 
     def logout(self):
@@ -367,6 +440,8 @@ class NeonApplication(core.Application):
         super().logout()
 
     def navigate(self,key,keep=False):
+        if key=='staff':
+            self.store.require()
         if getattr(self,'_menu_search_timer',None):
             self.after_cancel(self._menu_search_timer)
             self._menu_search_timer=None
@@ -388,7 +463,9 @@ class NeonApplication(core.Application):
         self.module=key
         self.timers=[]
         for k,nav in self.nav.items():
-            nav.config(bg="#1b3050" if k==key else "#0b1120",fg=ACCENT if k==key else MUTED)
+            nav.config(bg=ACCENT if k==key else INK,fg=INK if k==key else MUTED)
+        titles={'stations':'01  /  PLAY','shop':'02  /  REFUEL','events':'03  /  COMPETE','billing':'04  /  YOUR MEMBERSHIP','staff':'05  /  THE CREW'}
+        self.main_caption.configure(text=titles[key])
         if key=='stations':
             self.store.tick()
         revision=Path(self.store.path).stat().st_mtime_ns
@@ -406,28 +483,51 @@ class NeonApplication(core.Application):
         self.content=tk.Frame(self.page_host,bg=BG)
         self.content.pack(fill='both',expand=True)
         before=dict(self.__dict__)
-        headings={
-            "stations":("YOUR NEXT SESSION STARTS HERE","Choose your battlestation.","Standard & VIP rigs. Book now or secure your next session."),
-            "shop":("REFUEL. RELOAD. REPEAT.","Good games need good fuel.","Coffee, snacks and game credits — straight to your station."),
-            "events":("PLAY TOGETHER. WIN TOGETHER.","Step into the competition.","Find your event. Build your team. Take the next round."),
-            "billing":("ONE ACCOUNT. MORE POSSIBILITIES.","Your CTFLY player hub.","Sessions, orders, rewards and one simple checkout."),
-            "staff":("BEHIND EVERY GREAT SESSION","The crew control room.","Plan the week. Keep the floor running. Track every shift."),
-        }
-        eyebrow,title,subtitle=headings[key]
-        hero=Artwork(self.content,"neon_cafe.png" if key=="shop" else "neon_arena.png",height=56 if key=='shop' else 100 if self.layout_compact else 148)
+        heights={'stations':(110,184),'shop':(74,118),'events':(104,144),'billing':(66,90),'staff':(66,90)}
+        height=heights[key][0 if self.layout_compact else 1]
+        photographic=key in ('stations','shop','events')
+        hero=Artwork(self.content,'neon_cafe.png' if key=='shop' else 'neon_arena.png',height=height) if photographic else tk.Canvas(self.content,bg=BG,height=height,highlightthickness=0)
         hero.pack(fill="x",pady=(0,16))
         def draw(w,h):
             hero.delete("copy")
-            if key=='shop':
-                hero.create_text(26,4,anchor='nw',text='CTFLY Café · Gaming fuel, delivered.',fill=TEXT,font=(FONT,18,'bold'),tags='copy')
-                hero.create_text(28,36,anchor='nw',text='Choose your favorites, check your basket, then place your order.',fill=MUTED,font=(FONT,8),tags='copy')
-                return
-            hero.create_text(28,13 if self.layout_compact else 24,anchor="nw",text=eyebrow,fill=ACCENT,font=(FONT,8,"bold"),tags="copy")
-            hero.create_text(26,33 if self.layout_compact else 48,anchor="nw",text=title,fill=TEXT,font=(FONT,22 if self.layout_compact else 27,"bold"),tags="copy")
-            hero.create_text(28,77 if self.layout_compact else 103,anchor="nw",text=subtitle,fill="#c9d9f1",font=(FONT,9 if self.layout_compact else 10),tags="copy")
-            hero.create_rectangle(w-149,25,w-23,54,fill="#111d33",outline=ACCENT,tags="copy")
-            hero.create_text(w-86,39,text="● LIVE CAFÉ",fill=ACCENT,font=(FONT,9,"bold"),tags="copy")
-        hero.draw_foreground=draw
+            def text(x,y,value,size=12,color=TEXT,font=DISPLAY,anchor='nw'):
+                hero.create_text(x,y,anchor=anchor,text=value,fill=color,font=(font,size,'bold'),tags='copy')
+            if key=='stations':
+                text(24,15,'CTFLY  /  THE PLAYGROUND',8,ACCENT,MONO)
+                if self.layout_compact:
+                    text(22,35,'YOUR NEXT LEVEL.',29)
+                    text(24,86,'SELECT YOUR RIG. MAKE IT YOURS.',8,MUTED,MONO)
+                else:
+                    text(22,39,'MAKE IT',34)
+                    text(22,94,'YOUR ARENA.',34,ACCENT)
+                    text(26,162,'STANDARD + VIP  /  BOOK YOUR NEXT SESSION',8,TEXT,MONO)
+                flight_mark(hero,w-146,30,1.85,ACCENT,'copy')
+            elif key=='shop':
+                text(22,8,'FUEL YOUR NEXT ROUND.' if self.layout_compact else 'GOOD GAMES.',24 if self.layout_compact else 28)
+                if not self.layout_compact:
+                    text(22,53,'GREAT FUEL.',28,ACCENT)
+                    text(w-23,h-18,'FRESH PICKS / CAFÉ MENU',8,TEXT,MONO,'se')
+                else:
+                    text(24,51,'PICK YOUR FAVORITES. WE WILL BRING THE FUEL.',8,MUTED,MONO)
+            elif key=='events':
+                text(24,14,'THE COMPETITIVE SIDE OF CTFLY',8,BLUE,MONO)
+                text(22,40,'THIS IS YOUR STAGE.',29 if self.layout_compact else 34)
+                if not self.layout_compact:
+                    text(26,110,'TEAM UP  /  PLAY YOUR BEST  /  TAKE THE NEXT ROUND',8,TEXT,MONO)
+                for offset in range(3):
+                    x=w-120+offset*25
+                    hero.create_polygon(x,20,x+14,20,x-20,h-20,x-34,h-20,fill=BLUE,outline='',tags='copy')
+            else:
+                text(w-4,h+13,'04' if key=='billing' else '05',65 if self.layout_compact else 84,SURFACE,MONO,'se')
+                text(0,0,'YOUR PLAYER HUB' if key=='billing' else 'CREW HQ.',27 if self.layout_compact else 34)
+                text(2,48 if self.layout_compact else 65,'MORE PLAY. MORE PERKS.' if key=='billing' else 'GOOD SHIFTS. GREAT SESSIONS.',8,ACCENT,MONO)
+            if photographic:
+                hero.create_polygon(0,0,16,0,0,16,fill=ACCENT,outline='',tags='copy')
+                hero.create_line(0,h-1,w,h-1,fill=BORDER,tags='copy')
+        if photographic:
+            hero.draw_foreground=draw
+        else:
+            hero.bind('<Configure>',lambda event:draw(event.width,event.height))
         getattr(self,f"page_{key}")()
         index=self.tab_index.get(key,0)
         if index<len(self.book.tabs()):
@@ -456,19 +556,18 @@ class NeonApplication(core.Application):
             return
         row=tk.Frame(self.content,bg=BG)
         row.pack(fill="x",pady=(0,17))
-        colors=[ACCENT,BLUE,AMBER,RED]
+        colors=[ACCENT,TEXT,TEXT,TEXT]
         for i,(caption,value,detail) in enumerate(items):
             row.columnconfigure(i,weight=1,uniform="metrics")
-            card=tk.Frame(row,bg=PANEL,padx=17,pady=8 if self.layout_compact else 12,highlightbackground=BORDER,highlightthickness=1)
+            card=tk.Frame(row,bg=BG,padx=12,pady=2)
             card.grid(row=0,column=i,sticky="ew",padx=(0,10 if i<len(items)-1 else 0))
-            line=tk.Frame(card,bg=PANEL)
+            line=tk.Frame(card,bg=BG)
             line.pack(fill="x")
-            label(line,caption.upper(),8,MUTED,True).pack(side="left")
-            metric=label(line,str(value),18 if self.layout_compact else 21,colors[i%4],True)
-            metric.pack(side='right')
+            metric=label(line,str(value),21 if self.layout_compact else 26,colors[i%4],True)
+            metric.pack(side='left')
+            label(line,caption.upper(),8,MUTED,True,wraplength=125,justify='left').pack(side='left',padx=(13,0))
             self.metric_labels[caption]=metric
-            if not self.layout_compact:
-                label(card,detail,8,MUTED).pack(anchor="w",pady=(5,0))
+            tk.Frame(card,bg=BORDER,height=1).pack(fill='x',pady=(7,0))
 
     def section(self,parent,title,description=""):
         line=tk.Frame(parent,bg=BG)
@@ -479,7 +578,7 @@ class NeonApplication(core.Application):
 
     def table(self,parent,columns,rows,height=12):
         widget=super().table(parent,columns,rows,height)
-        widget.tree.tag_configure("odd",background="#141e32")
+        widget.tree.tag_configure("odd",background="#1d2520")
         return widget
 
     def page_stations(self):
@@ -591,10 +690,11 @@ class NeonApplication(core.Application):
         menu=self.book.frames[0]
         for child in menu.winfo_children():
             child.destroy()
-        cart=tk.Frame(menu,bg=PANEL,width=300,padx=20,pady=14,highlightbackground=BORDER,highlightthickness=1)
+        cart=tk.Frame(menu,bg=PANEL,width=276 if self.layout_compact else 300,padx=18,pady=14,highlightbackground=BORDER,highlightthickness=1)
         cart.pack(side='right',fill='y',padx=(18,0))
         cart.pack_propagate(False)
-        label(cart,"2 / CHECK YOUR ORDER",8,ACCENT,True).pack(anchor='w')
+        tk.Frame(cart,bg=ACCENT,height=3).pack(fill='x',pady=(0,12))
+        label(cart,"ORDER SUMMARY",8,MUTED,True).pack(anchor='w')
         heading=tk.Frame(cart,bg=PANEL)
         heading.pack(fill='x',pady=(6,6))
         label(heading,"Your basket",17,TEXT,True).pack(side='left')
@@ -638,10 +738,10 @@ class NeonApplication(core.Application):
         label(checkout,"Payment at the café counter.",8,MUTED,wraplength=245,justify='left').pack(anchor='w')
         catalogue=tk.Frame(menu,bg=BG)
         catalogue.pack(fill='both',expand=True)
-        self.section(catalogue,"1 / Choose your food & drinks")
         search=tk.StringVar(value=getattr(self,'menu_search',''))
         searchbar=tk.Frame(catalogue,bg=BG)
         searchbar.pack(fill='x',pady=(0,12))
+        label(searchbar,'Search menu',9,MUTED).pack(side='left',padx=(0,10))
         ttk.Entry(searchbar,textvariable=search).pack(side='left',fill='x',expand=True)
         button(searchbar,'Clear search',lambda:search.set('')).pack(side='left',padx=(8,0))
         filterbar=tk.Frame(catalogue,bg=BG)
@@ -657,14 +757,20 @@ class NeonApplication(core.Application):
             for child in listing.inner.winfo_children():
                 child.destroy()
             for name,pill in pills.items():
-                pill.config(bg='#1b3050' if name==category.get() else SURFACE,fg=ACCENT if name==category.get() else MUTED)
+                pill.config(bg=ACCENT if name==category.get() else BG,fg=INK if name==category.get() else MUTED)
             visible=[p for p in products if (category.get()=='All' or category.get()==p['category'] or category.get()=='Favorites' and p['id'] in favorites) and search.get().casefold() in (p['name']+p['category']).casefold()]
             for i,p in enumerate(visible):
                 listing.inner.columnconfigure(i%2,weight=1,uniform='menu')
                 card=tk.Frame(listing.inner,bg=PANEL,highlightbackground=BORDER,highlightthickness=1)
                 card.grid(row=i//2,column=i%2,sticky='nsew',padx=4,pady=5)
-                art=Artwork(card,self.product_image(p),height=120 if self.layout_compact else 150,shade=False)
+                art=Artwork(card,self.product_image(p),height=170 if self.layout_compact else 220,shade=False)
                 art.pack(fill='x')
+                badge=label(art,p['category'].upper(),8,TEXT,True,padx=9,pady=5)
+                badge.configure(bg=INK)
+                badge.place(x=12,y=12)
+                star=button(art,'★ Saved' if p['id'] in favorites else '☆ Save',lambda pid=p['id']:self.run(lambda:(self.store.favorite(pid),render()),False))
+                star.configure(font=(FONT,8),pady=4,padx=6,bg=INK,fg=ACCENT if p['id'] in favorites else TEXT)
+                star.place(relx=1,x=-12,y=12,anchor='ne')
                 if not (ASSETS/self.product_image(p)).exists():
                     def digital(w,h,canvas=art,price=p['price'],category=p['category']):
                         canvas.delete('credit')
@@ -674,16 +780,16 @@ class NeonApplication(core.Application):
                     art.draw_foreground=digital
                 content=tk.Frame(card,bg=PANEL,padx=14,pady=10)
                 content.pack(fill='x')
-                label(content,p['name'],12,TEXT,True,wraplength=220,justify='left').pack(anchor='w')
-                star=button(content,'★ Saved' if p['id'] in favorites else '☆ Save',lambda pid=p['id']:self.run(lambda:(self.store.favorite(pid),render()),False))
-                star.configure(font=(FONT,8),pady=0,padx=4)
-                star.pack(anchor='e',pady=0)
+                label(content,p['name'],13,TEXT,True,wraplength=240,justify='left').pack(anchor='w')
                 line=tk.Frame(content,bg=PANEL)
-                line.pack(fill='x',pady=(9,10))
-                label(line,money(p['price']),15,ACCENT,True).pack(side='left')
-                label(line,f"{p['stock']} left",8,AMBER if p['stock']<=p['threshold'] else MUTED).pack(side='right')
-                add=button(content,'+  Add to tray' if p['stock'] else 'Sold out',lambda r=p:self.run(lambda:self.add_cart(r),False))
-                add.pack(fill='x')
+                line.pack(fill='x',pady=(8,0))
+                price=tk.Frame(line,bg=PANEL)
+                price.pack(side='left')
+                label(price,money(p['price']),17,TEXT,True).pack(anchor='w')
+                label(price,f"{p['stock']} available",8,AMBER if p['stock']<=p['threshold'] else MUTED).pack(anchor='w')
+                add=button(line,'Add  +' if p['stock'] else 'Sold out',lambda r=p:self.run(lambda:self.add_cart(r),False))
+                add.configure(fg=ACCENT,padx=14,pady=9)
+                add.pack(side='right')
                 if not p['stock']:
                     add.config(state='disabled')
             if not visible:
@@ -874,46 +980,56 @@ class NeonApplication(core.Application):
         mid=self.choice_id(self.last_cashier)
         member=self.store.member(mid)
         quote=self.store.quote(mid)
-        receipt_outer=tk.Frame(self.account_body,bg=PANEL,width=325,padx=18,pady=20,highlightbackground=BORDER,highlightthickness=1)
+        receipt_outer=tk.Frame(self.account_body,bg=PANEL,width=325,padx=18,pady=12 if self.layout_compact else 20,highlightbackground=BORDER,highlightthickness=1)
         receipt_outer.pack(side='right',fill='y',padx=(20,0))
         receipt_outer.pack_propagate(False)
         payment=tk.Frame(receipt_outer,bg=PANEL)
-        payment.pack(side='bottom',fill='x',pady=(12,0))
+        payment.pack(side='bottom',fill='x',pady=(7 if self.layout_compact else 12,0))
         receipt_scroll=core.Scroll(receipt_outer,bg=PANEL)
         receipt_scroll.pack(fill='both',expand=True)
         receipt=receipt_scroll.inner
         label(receipt,'CHECKOUT SUMMARY',8,ACCENT,True).pack(anchor='w')
-        label(receipt,'Ready to settle?',18,TEXT,True,wraplength=270,justify='left').pack(anchor='w',pady=(10,12))
+        if not self.layout_compact:
+            label(receipt,'Ready to settle?',18,TEXT,True,wraplength=270,justify='left').pack(anchor='w',pady=(10,12))
         for caption,key in [('PC sessions','Session'),('Café orders','Order'),('Event entries','Event'),('Tier discount','discount')]:
             line=tk.Frame(receipt,bg=PANEL)
-            line.pack(fill='x',pady=9)
-            label(line,caption,10,MUTED).pack(side='left')
-            label(line,('− ' if key=='discount' else '')+money(quote[key]),11,TEXT,True).pack(side='right')
-        tk.Frame(receipt,bg=BORDER,height=1).pack(fill='x',pady=16)
-        label(payment,'TOTAL DUE',9,MUTED,True).pack(anchor='w')
-        label(payment,money(quote['total']),26,ACCENT,True).pack(anchor='w',pady=(4,8))
+            line.pack(fill='x',pady=4 if self.layout_compact else 9)
+            label(line,caption,9 if self.layout_compact else 10,MUTED).pack(side='left')
+            label(line,('− ' if key=='discount' else '')+money(quote[key]),10 if self.layout_compact else 11,TEXT,True).pack(side='right')
+        tk.Frame(receipt,bg=BORDER,height=1).pack(fill='x',pady=7 if self.layout_compact else 16)
+        if self.layout_compact:
+            total_line=tk.Frame(payment,bg=PANEL)
+            total_line.pack(fill='x',pady=(0,7))
+            label(total_line,'TOTAL',8,MUTED,True).pack(side='left')
+            label(total_line,money(quote['total']),22,ACCENT,True).pack(side='right')
+        else:
+            label(payment,'TOTAL DUE',9,MUTED,True).pack(anchor='w')
+            label(payment,money(quote['total']),26,ACCENT,True).pack(anchor='w',pady=(4,8))
         label(receipt,f"{quote['count']} items · {quote['total']//100} points on payment",9,MUTED).pack(anchor='w',pady=(0,18))
         if self.staff:
             self.payment_method=tk.StringVar(value='Cash')
-            ttk.Combobox(payment,textvariable=self.payment_method,values=['Cash','Card','TNG eWallet'],state='readonly').pack(fill='x')
+            ttk.Combobox(payment,textvariable=self.payment_method,values=['Cash','Card','TNG eWallet'],state='readonly',style='Compact.TCombobox').pack(fill='x')
             paid=button(payment,'CONFIRM PAYMENT  →',lambda:self.run(lambda:self.pay_member(mid)),primary=True)
             self.payment_submit=paid
-            paid.config(pady=7)
-            paid.pack(fill='x',pady=10)
-            label(payment,'Confirm after receiving payment at the counter.',8,MUTED,wraplength=275,justify='left').pack(anchor='w')
+            paid.config(pady=5 if self.layout_compact else 7,font=(FONT,9 if self.layout_compact else 10,'bold'))
+            paid.pack(fill='x',pady=7 if self.layout_compact else 10)
+            label(payment,'Confirm after collecting payment.',8,MUTED,wraplength=275,justify='left').pack(anchor='w')
         else:
             label(payment,'Pay at the café counter.',11,BLUE,True).pack(anchor='w',pady=12)
         left_scroll=core.Scroll(self.account_body,bg=BG)
         left_scroll.pack(fill='both',expand=True)
         left=left_scroll.inner
-        card=Artwork(left,'neon_arena.png',height=175)
+        card=tk.Canvas(left,bg=ACCENT,height=210,highlightthickness=0)
         card.pack(fill='x',pady=(0,18))
         def draw(w,h):
             card.delete('copy')
-            card.create_text(22,23,anchor='nw',text='CTFLY   /   PLAYER MEMBERSHIP',fill=ACCENT,font=(FONT,8,'bold'),tags='copy')
-            card.create_text(20,58,anchor='nw',text=member['name'],fill=TEXT,font=(FONT,25,'bold'),tags='copy')
-            card.create_text(22,114,anchor='nw',text=f"CTFLY-{mid:04}     /     {member['tier'].upper()}     /     {member['points']} POINTS",fill='#cbdcff',font=(FONT,10,'bold'),tags='copy')
-        card.draw_foreground=draw
+            card.create_polygon(w-155,0,w,0,w,h-70,w-45,h,w-155,h,fill='#b3dc60',outline='',tags='copy')
+            flight_mark(card,w-100,68,1.65,INK,'copy')
+            card.create_text(23,21,anchor='nw',text='CTFLY  /  PLAYER PASS',fill=INK,font=(MONO,10,'bold'),tags='copy')
+            card.create_text(20,68,anchor='nw',text=member['name'],fill=INK,font=(DISPLAY,25,'bold'),width=max(120,w-155),tags='copy')
+            card.create_text(23,153,anchor='nw',text=f"MEMBER  {mid:04}    /    {member['tier'].upper()}",fill=INK,font=(MONO,10,'bold'),tags='copy')
+            card.create_line(23,h-21,w-24,h-21,fill=INK,tags='copy')
+        card.bind('<Configure>',lambda event:draw(event.width,event.height))
         self.section(left,'Your account at a glance')
         line=tk.Frame(left,bg=BG)
         line.pack(fill='x',pady=(0,20))
@@ -926,6 +1042,15 @@ class NeonApplication(core.Application):
         tier.pack(fill='x')
         label(tier,'LEVEL UP YOUR MEMBERSHIP',9,ACCENT,True).pack(anchor='w')
         label(tier,'Bronze  →  Silver  →  Gold',15,TEXT,True).pack(anchor='w',pady=12)
+        next_tier='Silver' if member['spent']<30000 else 'Gold'
+        target=30000 if member['spent']<30000 else 100000
+        progress=tk.Canvas(tier,bg=SURFACE,height=7,highlightthickness=0)
+        progress.pack(fill='x',pady=(0,9))
+        def draw_progress(event):
+            progress.delete('all')
+            progress.create_rectangle(0,0,event.width*min(1,member['spent']/target),7,fill=ACCENT,outline='')
+        progress.bind('<Configure>',draw_progress)
+        label(tier,'Gold unlocked. Enjoy your 10% member discount.' if member['spent']>=100000 else f"{money(target-member['spent'])} to unlock {next_tier}",10,ACCENT).pack(anchor='w',pady=(0,12))
         label(tier,'Silver at RM 300: 5% off. Gold at RM 1,000: 10% off.\nEarn 1 point per whole RM paid. New tiers apply to your next bill.',10,MUTED,wraplength=460,justify='left').pack(anchor='w')
 
     def page_billing(self):
@@ -959,16 +1084,7 @@ class NeonApplication(core.Application):
                 child.bind('<Button-1>',select)
 
     def page_staff(self):
-        if not self.staff:
-            pages=self.tabs(['Staff & Attendance'])
-            panel=tk.Frame(pages[0],bg=PANEL,padx=35,pady=30)
-            panel.pack(fill='x',pady=15)
-            label(panel,'Staff & Attendance',25,TEXT,True).pack(anchor='w')
-            label(panel,'Your café team workspace',12,ACCENT).pack(anchor='w',pady=10)
-            label(panel,'Weekly schedules · clock-in / clock-out · leave requests\nStaff directory · shift templates · task board · attendance reports',12,MUTED,justify='left').pack(anchor='w',pady=20)
-            label(panel,'Sign in with a staff or manager account to access employee records.',11,TEXT).pack(anchor='w',pady=10)
-            button(panel,'Switch to staff sign-in',self.logout,primary=True).pack(anchor='w',pady=15)
-            return
+        self.store.require()
         super().page_staff()
         page=self.book.frames[0]
         table=self.roster_table
@@ -1015,7 +1131,7 @@ class NeonApplication(core.Application):
             calendar.columnconfigure(i,weight=1,uniform='day')
             day=monday+timedelta(days=i)
             today=day==now().date()
-            cell=tk.Frame(calendar,bg='#172c45' if today else PANEL,padx=10,pady=10,highlightbackground=ACCENT if today else BORDER,highlightthickness=1)
+            cell=tk.Frame(calendar,bg='#283621' if today else PANEL,padx=10,pady=10,highlightbackground=ACCENT if today else BORDER,highlightthickness=1)
             cell.grid(row=0,column=i,sticky='nsew',padx=3)
             label(cell,day.strftime('%a').upper(),8,ACCENT if today else MUTED,True).pack(anchor='w')
             label(cell,f'{day.day:02}',21,TEXT,True).pack(anchor='w',pady=(5,7))

@@ -3,7 +3,6 @@
 Creates actual Tk widgets; no changes to the application's database.
 """
 from pathlib import Path
-import subprocess
 import sys
 import tkinter as tk
 import tempfile
@@ -21,6 +20,7 @@ def main():
         errors=[]
         app.report_callback_exception=lambda kind,error,tb:errors.append(str(error))
         def capture(name):
+            print('CAPTURE '+name,flush=True)
             destination=Path(__file__).resolve().parent/'test-artifacts'
             destination.mkdir(exist_ok=True)
             app.lift()
@@ -29,17 +29,69 @@ def main():
             app.after(180,lambda:ready.set(True))
             app.wait_variable(ready)
             x,y=app.winfo_rootx(),app.winfo_rooty()
-            try:
-                from PIL import ImageGrab
-            except ImportError:
-                if sys.platform=='win32':
-                    subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(Path(__file__).resolve().parent/'capture_window.ps1'),
-                                    '-X',str(x),'-Y',str(y),'-Width',str(app.winfo_width()),'-Height',str(app.winfo_height()),
-                                    '-OutputFile',str(destination/f'{name}.png')],check=True,capture_output=True)
+            if sys.platform=='win32':
+                from capture_ctfly import capture as render_window
+                render_window(app,destination/f'{name}.png')
             else:
+                from PIL import ImageGrab
                 ImageGrab.grab(bbox=(x,y,x+app.winfo_width(),y+app.winfo_height())).save(destination/f'{name}.png')
         app.update()
         capture('login')
+        def sign_in(name,password):
+            app.login_values['username'].set(name)
+            app.login_values['password'].set(password)
+            app.login_submit.invoke()
+            app.update()
+        def drain_oauth():
+            ready=tk.BooleanVar(value=False)
+            app.after(400,lambda:ready.set(True))
+            app.wait_variable(ready)
+            assert app.oauth_queue.empty()
+        for name,password in [('staff1','Staff@123'),('admin','Admin@123')]:
+            sign_in(name,password)
+            assert store.user is None and 'Staff / Admin Login' in app.login_error.cget('text')
+        abandoned=app.oauth_generation
+        app.portal_buttons['staff'].invoke()
+        app.update()
+        assert not app.login_mode
+        assert not app.google_button.winfo_exists()
+        capture('staff_login')
+        # A delayed Google success/error must not change the newly selected portal.
+        app.oauth_queue.put((abandoned,True,{'sub':'stale','email':'stale@example.com'}))
+        app.oauth_queue.put((abandoned,False,'Cancelled old request'))
+        drain_oauth()
+        assert store.user is None and not app.login_error.cget('text')
+        sign_in('gamer1','Gamer@123')
+        assert store.user is None and 'Customer Login' in app.login_error.cget('text')
+        sign_in('staff1','wrong')
+        assert store.user is None and 'Incorrect' in app.login_error.cget('text')
+        sign_in('staff1','Staff@123')
+        assert app.module=='staff' and store.user['role']=='staff'
+        app.logout()
+        assert app.login_portal=='customer'
+        app.portal_buttons['staff'].invoke()
+        sign_in('admin','Admin@123')
+        assert app.module=='staff' and store.user['role']=='admin'
+        app.logout()
+        abandoned=app.oauth_generation
+        sign_in('gamer1','Gamer@123')
+        app.oauth_queue.put((abandoned,False,'Late Google error'))
+        drain_oauth()
+        assert app.module=='stations' and store.user['role']=='customer' and 'staff' not in app.nav
+        app.logout()
+        normal_geometry=f'{app.winfo_width()}x{app.winfo_height()}'
+        app.geometry('1120x710')
+        for portal in ('customer','staff'):
+            app.show_login(portal=portal)
+            app.update()
+            capture('small_'+portal+'_login')
+            for widget in [*app.portal_buttons.values(),app.login_submit]:
+                parent=widget.master
+                while parent is not app:
+                    assert widget.winfo_rooty()+widget.winfo_height()<=parent.winfo_rooty()+parent.winfo_height()+2
+                    parent=parent.master
+        app.geometry(normal_geometry)
+        print('PASS customer/staff/admin entrances, role checks, landing pages and cancelled OAuth')
         app.show_login(True)
         app.update()
         def descendants(widget):
@@ -146,11 +198,13 @@ def main():
                 app.book.select(index)
                 app.update()
             print(f"PASS customer {module}")
-        assert 'staff' in app.nav
-        app.navigate('staff')
-        app.update()
-        assert len(app.book.tabs())==1
-        capture('customer_staff')
+        assert 'staff' not in app.nav
+        try:
+            app.navigate('staff')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Customer opened employee workspace')
         app.geometry('1120x710')
         app.navigate('shop')
         app.book.select(0)
@@ -163,6 +217,23 @@ def main():
         while ancestor is not app:
             assert submit.winfo_rooty()+submit.winfo_height()<=ancestor.winfo_rooty()+ancestor.winfo_height()+2
             ancestor=ancestor.master
+        app.logout()
+        store.login('admin','Admin@123')
+        app.shell()
+        for module in ('stations','shop','events','billing','staff'):
+            app.navigate(module)
+            app.book.select(0)
+            app.update()
+            capture('small_admin_'+module)
+            assert app.logout_button.winfo_rooty()+app.logout_button.winfo_height()<=app.winfo_rooty()+app.winfo_height()
+            submit={'stations':'booking_submit','shop':'order_submit','billing':'payment_submit'}.get(module)
+            if submit:
+                widget=getattr(app,submit)
+                parent=widget.master
+                while parent is not app:
+                    assert widget.winfo_rooty()+widget.winfo_height()<=parent.winfo_rooty()+parent.winfo_height()+2
+                    parent=parent.master
+        print('PASS five modules at 1120 x 710')
         app.show_login(True)
         values={'name':'Young Gamer','username':'younguser','email':'','phone':'','dob':'2015-01-01','password':'Password123','password_confirm':'Password123'}
         for key,value in values.items():

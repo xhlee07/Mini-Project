@@ -1,15 +1,16 @@
-# CTFLY Gaming Café — Neon Arena
+# CTFLY Gaming Club
 
-Python + Tkinter/ttk + SQLite desktop application with exactly five business modules. The current UI uses cinematic local gaming-café photographs, cyan/violet accents, a horizontal main navigation and a vertical contextual control panel. English interface for assignment presentation. Core modules work without third-party packages; Pillow improves responsive image scaling, matplotlib adds charts, and google-auth adds genuine Google sign-in.
+Python + Tkinter/ttk + SQLite desktop application with exactly five business modules. The current Gaming Club design uses charcoal surfaces, acid-lime accents, bold Bahnschrift headlines, a geometric CTFLY wing mark and local café photographs. Five modules live in a permanent left navigation; contextual views use wrapping horizontal tabs. English interface for assignment presentation. Core modules work without third-party packages; Pillow improves responsive image scaling, matplotlib adds charts, and google-auth adds genuine Google sign-in.
 
-The redesigned layouts include a full-background sign-in/register screen, zone-based PC floor map with a booking console, image-based café catalog with an editable order tray, event cards and competition details, a membership pass and cashier terminal, reward cards, and a weekly staff calendar. Primary booking, order and checkout buttons stay visible while their detail panels scroll. Windows DPI scaling is handled before creating the Tk window.
+The redesigned layouts include a full-background sign-in/register screen, a large arena headline above the PC floor map, a photographic café menu with product-image favorites and compact add controls, event cards, a lime player pass with tier progress, reward cards, and a weekly staff calendar. Compact statistics replace repeated dashboard boxes. Primary booking, order and checkout buttons stay visible while their detail panels scroll. Windows DPI scaling is handled before creating the Tk window.
 
 ## Latest usability update
 
 - Café menu gives more space to products and the basket, with search, category filters, saved favorites, quantity controls and **Order again** from history. Delivery options contain only the selected member's active PCs. Empty baskets cannot be submitted; orders require review/confirmation before stock is deducted.
 - Coffee, energy drink, water, lemon tea, noodles, chips, chicken burger and fries each have a separate local photograph in `assets/menu`. Digital game cards use a separate drawn graphic. Lemon tea, burger and fries are added once to existing catalogs, without resetting records or restoring products you have deactivated.
 - Birth dates, booking dates, event start/end, staff hire dates, roster dates, weekly starts and task dates use read-only calendar dropdowns. Hours/minutes are dropdowns too. February and leap years are handled automatically. Booking offers **Now** or a future date.
-- **Staff** is visible in the main navigation. Customers see a module explanation; employee records require `staff1 / Staff@123` or `admin / Admin@123`. Staff can see their own attendance and task board; managers assign tasks and employees complete/reopen their own missions. Weekly roster has previous/next week controls.
+- The initial screen has fixed **Customer Login** and **Staff / Admin Login** entrances. Customers enter the PC Arena; staff and admins enter the Staff workspace directly. Accounts must match the selected entrance. Only customers see public registration and Google sign-in; staff accounts are provided by an administrator. Demo credentials are documented below instead of displayed on the login form. Changing entrances cancels any pending Google sign-in.
+- **Staff** appears only in employee navigation. Staff can see their own attendance and task board; managers assign tasks and employees complete/reopen their own missions. Weekly roster has previous/next week controls.
 - Normal page switches reuse widgets and keep scroll/subview state. Data-changing refreshes invalidate cached pages, and database file changes invalidate stale views. Background sources/resized images are cached, report charts load only when opened, idle timers do not write SQLite, and one wheel dispatcher routes scrolling to the panel under the pointer.
 
 Interaction references: [Square item modifiers and ordering](https://squareup.com/help/us/en/article/5119-create-and-manage-item-modifiers), [7shifts employee dashboard](https://kb.7shifts.com/hc/en-us/articles/4417519877011-Employee-Dashboard-Overview), and [7shifts availability/time-off workflow](https://kb.7shifts.com/hc/en-us/articles/33383119814163-Manage-availability-and-time-off-requests-Getting-Started-for-Managers). CTFLY retains its five original business modules; it does not include every feature in those products.
@@ -66,11 +67,12 @@ Protocol references: [Google desktop OAuth](https://developers.google.com/identi
 
 - `main.py`: new entry point.
 - `ctfly_app.py`: five redesigned screens, forms, receipts and reports.
-- `ctfly_neon.py`: current Neon Arena presentation layer; all five modules keep the existing business rules.
+- `ctfly_neon.py`: Gaming Club presentation layer, module navigation, cached pages and responsive layouts.
 - `assets/neon_arena.png`, `assets/neon_cafe.png`: generated local photographic backgrounds. Prompts/tool details are in `assets/IMAGE_PROMPTS.md`.
 - `ctfly_store.py`: database schema and transactional business rules.
 - `google_oauth.py`: browser-based OAuth.
 - `test_ctfly.py`: isolated regression tests.
+- `capture_ctfly.py`: Windows visual QA helper that renders the test app's own window without capturing the desktop.
 - `ctfly_v3.db`: automatically generated new database with 16 stations, catalog, events, rewards and demo users. No artificial sales/active sessions.
 
 All original module source files and **tfly_gaming.db** are retained. `main_legacy.py`, `README_legacy.md` and `requirements_legacy.txt` preserve the old launcher/documentation/dependencies. Version 3 never opens the old database and does not migrate its records. Do not delete real café data to reset a demo; back it up. Replace demo credentials before actual use. This is a local academic prototype.
@@ -83,7 +85,7 @@ python -m compileall -q main.py ctfly_app.py ctfly_neon.py ctfly_store.py date_c
 python smoke_ui.py
 ```
 
-Tests use temporary databases. `smoke_ui.py` checks actual Tk screens and writes client-window screenshots to `test-artifacts` (uses Pillow or the included Windows capture helper). Real Google end-to-end testing requires your client and a human Google account.
+Tests use temporary databases. `smoke_ui.py` checks actual Tk screens and writes client-window screenshots to `test-artifacts`. The Windows helper renders the CTFLY window by handle, so other foreground windows are not included. Real Google end-to-end testing requires your client and a human Google account.
 
 ## Optional Windows executable
 

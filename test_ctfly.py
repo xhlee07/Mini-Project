@@ -40,6 +40,28 @@ class CafeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.register("young","Valid@123","Young","","","2015-01-01")
 
+    def test_login_portals_and_failed_session(self):
+        for name,password,portal,role in [('gamer1','Gamer@123','customer','customer'),('staff1','Staff@123','staff','staff'),('admin','Admin@123','staff','admin')]:
+            self.assertEqual(self.store.login(name,password,portal)['role'],role)
+            with self.assertRaisesRegex(ValueError,'Choose'):
+                self.store.login(name,password,'staff' if portal=='customer' else 'customer')
+            self.assertIsNone(self.store.user)
+        with self.assertRaisesRegex(ValueError,'Incorrect'):
+            self.store.login('staff1','wrong','staff')
+        self.assertIsNone(self.store.user)
+        with self.store.transaction() as db:
+            db.execute("UPDATE users SET active=0 WHERE username='staff1'")
+        with self.assertRaisesRegex(ValueError,'Incorrect'):
+            self.store.login('staff1','Staff@123','staff')
+        self.assertIsNone(self.store.user)
+
+    def test_google_does_not_enter_staff_workspace(self):
+        with self.store.transaction() as db:
+            db.execute("UPDATE users SET google_sub='staff-sub' WHERE username='staff1'")
+        with self.assertRaisesRegex(ValueError,'Staff / Admin Login'):
+            self.store.google_login({'sub':'staff-sub','email':'staff@example.com'})
+        self.assertIsNone(self.store.user)
+
     def test_book_requires_adult_and_ownership(self):
         other=self.new_member(1)
         self.store.login("gamer1","Gamer@123")
