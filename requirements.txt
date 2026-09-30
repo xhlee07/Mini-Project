@@ -1,0 +1,6 @@
+# Core app: Python standard library + Tkinter + SQLite.
+# Optional charts, real Google sign-in, Windows packaging:
+matplotlib>=3.8,<4
+pillow>=10,<13
+google-auth[requests]>=2.29,<3
+pyinstaller>=6,<7

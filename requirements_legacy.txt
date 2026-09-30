@@ -1,0 +1,9 @@
+# TFLY Gaming Café Management System
+# Core Tech Stack Requirements
+ttkbootstrap>=2.2.3
+matplotlib>=3.11.0
+pillow>=10.0.0
+numpy>=2.0.0
+
+# Optional Packaging Tool for Assignment Delivery
+pyinstaller>=6.0.0
