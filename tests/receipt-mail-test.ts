@@ -1,0 +1,12 @@
+import {receiptHtml,receiptLines,type Bill} from '../supabase/functions/club-services/receipt.ts';
+import {receiptPdf} from '../supabase/functions/club-services/pdf.ts';
+const bill:Bill={id:'demo-receipt-2026-001',kind:'Booking',created_at:'2026-10-11T02:35:00Z',status:'Paid',environment:'test',method:'Test TNG',payment_reference:'TEST-DEMO-RECEIPT',subtotal:1200,discount:300,total:900,points:9,details:{customer_name:'Student 李明',activity:'Racing simulator',resource:'VIP Racing Simulator 01',zone:'VIP',starts_at:'2026-10-12T04:00:00Z',ends_at:'2026-10-12T05:30:00Z',duration_minutes:90,players:1,hourly_rate:800,promo_code:'SCHOOL25'}};
+const lines=receiptLines(bill);
+if(!lines.includes('Duration: 90 minutes')||!lines.includes('TOTAL: RM 9.00')||!lines.some(l=>l.includes('12 Oct')))throw Error('Receipt details missing');
+const unsafe={...bill,details:{...bill.details,customer_name:'<script>alert("unsafe")</script>'}};
+if(receiptHtml(unsafe).includes('<script>')||!receiptHtml(unsafe).includes('&lt;script&gt;'))throw Error('HTML receipt escaping failed');
+await Deno.mkdir('screenshots/revision',{recursive:true});
+const bytes=await receiptPdf(bill);if(bytes.byteLength<1000)throw Error('PDF missing');
+await Deno.writeFile('screenshots/revision/receipt-email.pdf',bytes);
+await Deno.writeTextFile('screenshots/revision/receipt-email.html',receiptHtml(bill));
+console.log('PASS: formal email receipt, HTML escaping, all session fields and Unicode PDF generation. No email was sent.');

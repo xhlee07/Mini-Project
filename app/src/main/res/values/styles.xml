@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.CTFLY" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#C6F56B</item>
+        <item name="android:windowBackground">#0B1013</item>
+        <item name="android:navigationBarColor">#0B1013</item>
+    </style>
+</resources>

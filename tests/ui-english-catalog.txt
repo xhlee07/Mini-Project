@@ -1,0 +1,675 @@
+ack
+Acknowledge
+Active
+Add category
+Add mission
+Add PC / lounge space
+Add product
+Add something tasty from Café.
+Add time & collect cash
+Add time to this session
+admin
+All
+All clear
+ALL SET FOR A GOOD TIME
+App feedback
+App rating
+Approved
+Arcade
+asset
+Assign mission
+Assign shift
+Assigned to
+assigned_user
+attendance
+authMode
+Availability
+Available
+Available quantity
+Back
+Back to operations
+Back to sign in
+Background color
+Bahasa Melayu
+Best sellers
+Beyond the PC
+bill_id
+bills
+Bites & cold drinks
+body
+book
+bookDate
+bookGuests
+Booking
+booking_id
+Bookings
+bookingTab
+bookMinutes
+bookTime
+bracket
+BRAKE
+Brake + steer = drift
+Bring your\nA-game.
+Café
+Cancel order
+Cancel reservation
+Cancel shift
+Cancel this reservation?
+cancel_booking
+cancel_order
+cancel_shift
+cancelBooking
+Cancelled
+capacity
+cart
+categories
+Category
+Category name
+category_id
+Change floor
+Changes immediately and stays on this device.
+Check back for new tournaments.
+Check in a player
+Check network
+Check your inbox.
+check_in
+checklist
+chicken_burger
+Choose
+Choose a comfortable look for the app.
+Choose a new password for your CTFLY account.
+Choose your group · Price for the whole room · 3 guests use a 4-PC room
+claim
+clock
+Clock in
+Clock out
+clock_out
+Close dialog
+Closing
+Closing safety check
+Club
+CLUB STATUS
+code
+Collect cash payment
+collect_reward
+COMPETE TOGETHER
+Completed payments will appear here.
+Confirm
+Confirm after receiving cash. Extra time is added only if the space remains available; otherwise no payment is recorded.
+Confirm cash received
+Confirm match winner?
+Confirm only after receiving cash at the counter. The server applies the member’s current tier discount. This records an actual counter payment.
+Confirm password
+Confirm reservation
+Confirmed
+Count cues & balls
+Counter pickup
+Create account
+Create reward
+Create staff accounts through Supabase Auth, then assign their role using the setup SQL. Public signup always creates a customer.
+Create tournament
+Create your 18+ player account.
+created_at
+CREW HQ
+CREW WORKSPACE
+CTFLY
+CTFLY / THE CAMPUS
+CTFLY Gaming Cafe · Malaysia\nBookings available to players aged 18 and above.
+CTFLY receipt
+CTFLY revenue report
+CTFLY TIME TRIAL
+ctfly_tour
+cubicleDoor
+cup_noodles
+customer
+Customer feedback
+customer_name
+Daily readiness
+date
+Date of birth · 18+
+datetime
+Day
+Deactivate account
+Declined
+Delivered
+Delivery
+description
+dialog
+Discover
+dob
+done
+Drag to look · Joystick to walk
+DRIFT
+Due date
+Duo
+Duration
+Earn 1 point per RM 1 paid. Tier upgrades apply to the next payment.
+Edit
+Edit member
+Edit profile
+Edit reward
+Edit space
+Email
+Email address
+Email code
+en
+end
+End session early
+End this session?
+End time
+end_session
+end_time
+endBooking
+Ends
+ends_at
+energy_drink
+English
+Enter code manually
+Enter the tournament
+Enter the verification code sent to your email.
+Enter tournament →
+Entries
+Entry code / scanned QR
+Entry fee (sen)
+Entry fee payable at counter
+Entry fee payable at the counter. Registration closes when the bracket is generated.
+Entry QR code
+Equipment
+Equipment care.
+Equipment issues will appear here.
+event
+event_id
+Events
+Every day
+Everything for a great session
+Exchange points for club favourites
+Exit kart
+Expand 3D view
+expected_total
+explore
+Explore drinks and food in Café.
+Explore events
+EXPLORE IN 3D
+Explore the club first
+Extend reservation
+extend_booking
+extend_paid
+extendPaid
+Extension
+Extension30
+Extension60
+Extra time
+false
+favorite
+Favorites
+fee
+feedback
+Feedback title
+feedback_status
+feedbackBody
+feedbackCategory
+feedbackFilter
+feedbackRating
+feedbackTitle
+Find a PC
+Find your kind of play.
+Find your next tournament and meet your next rival.
+Find your space →
+First-person venue tour · Joystick controls
+forgot
+Forgot password?
+form
+formData
+formType
+fries
+Fuel your play
+Full name
+game
+GAME CREDIT
+game_card
+GAMING • SOCIAL • CULTURE
+Gaming Cafe
+Gaming PCs
+GAS
+General
+Generate bracket
+GoKart
+Gold unlocked · 10% off your next bill
+Good games.\nGreat company.
+Good things, earned.
+Good to see you.
+Ground exit
+guests
+Handover
+Handover details
+handover_id
+handover_reads
+handovers
+Hide password
+Hourly rate (sen: RM 6 = 600)
+iced_coffee
+iced_lemon_tea
+id
+image
+In progress
+In the kitchen
+Inventory
+Issue
+item
+Join the bracket. Find your rivals. Play for the story.
+Join the club
+Join the club.
+Joystick: walk. Drag: look. Run switches to a faster pace; Jump lifts you off the floor.\n\nL1: connected esports desks. L2: billiards. G: social lounge and washroom. Walk up to a cubicle door to open or close it.\n\nG kart paddock: find Take a kart. Joystick steers; hold GAS or BRAKE; BRAKE alone slows down; BRAKE + steering at speed drifts. Hold REVERSE to recover from a rail. Large pedals support two-thumb play. Follow the circuit through all eight gates to complete a timed lap. No skills or power-ups. Restart resets the run; Exit kart returns to the paddock.\n\nThe tour and time trial work offline. Reservations are made in Play.
+JUMP
+Kart sessions: 10, 15, 30 or 60 minutes · One driver per kart
+kart_best
+kart_circuit
+kartBrake
+kartExit
+kartGas
+kartRestart
+kartRestartConfirm
+kartReverse
+kartStart
+Keep driving
+KEEP EVERYONE IN THE LOOP
+Keep exploring
+Keep the club moving.
+kind
+Kind,Revenue (RM)\n
+Language
+leave
+Leave 3D tour
+Leave date
+Leave decisions
+Leave requests
+Leave the next shift a helpful note.
+leave_decision
+leave_id
+leave_requests
+Let's explore
+Let’s get you back.
+Let’s play  →
+Live sessions
+loading
+Loading your club…
+Log in.\nLevel up.\nStay a while.
+login
+logout
+LOOK AFTER THE LOADOUT
+Lounge
+Low
+Low stock
+Low stock threshold
+Maintenance
+Make it your time.
+Make it yours
+Make room for a better game.
+MAKE TONIGHT COUNT
+Make yourself at home
+Manage
+Management
+MANAGER CONSOLE
+manageTab
+Mark collected
+Mark resolved
+Mark reviewed
+match_id
+matches
+Member name
+member_profile
+member_status
+Members
+MEMBERS GET MORE
+mineral_water
+Minute
+minutes
+Mission
+Missions
+Month
+Movement joystick
+ms
+multiline
+MY · 18+
+My active space
+My bookings
+My feedback
+My shifts
+My shifts & missions.
+name
+neon_arena
+neon_cafe
+New
+New here? Join CTFLY
+New spaces are coming. Try another activity or refresh.
+New submissions will appear after refresh.
+No
+No feedback here yet
+No receipts yet
+No reservations yet
+No shifts assigned
+No spaces to show
+Normal
+note
+Nothing here yet
+number
+On sale
+On the roster
+On your calendar
+One team. One shot.
+One team.\nEvery shift.\nReady to go.
+Open
+Open feedback inbox
+Opening
+Opening the venue…
+Operations
+Operations, people and the club — together.
+opsTab
+Order
+Order again
+order_id
+order_items
+order_status
+Orders
+Other
+page
+Paid
+Paid bookings only. Check-in starts the session within its reserved time.
+Paid revenue · all time
+Password
+pattern
+pay
+Pay at counter · unpaid holds expire 15 min after start
+Pay at the counter before check-in. Your unpaid reservation expires 15 minutes after its start. Arriving late does not extend your end time.
+Pay at the counter. Stock is checked again when you place the order.
+Payment receipt
+Payment, booking time and prior use are verified by the server.
+paymentId
+paymentKind
+PC
+PC / equipment name
+Pending
+people
+phone
+Phone number
+Pick a PC or bring friends to the lounge.
+Picture quality
+Place order
+Play
+Play hungry? Never.
+Player capacity
+Players
+playKind
+points
+Points activity
+Points required
+points_transactions
+Pool
+pool_club
+Pool, snooker & more
+potato_chips
+Premium rigs. Real competition. Your people.
+Preparing
+Preview catalog · Sign in to book or order
+price
+Price (sen: RM 6 = 600)
+priority
+Private rooms need the 1.7 cloud inventory update. Then refresh Play.
+Product image
+Product name
+product_id
+products
+profile
+profileName
+profilePhone
+qr
+qty
+quantity
+Racing
+rate
+Rates per hour · Availability confirmed when you reserve
+rating
+Reactivate account
+Read feedback submitted by club members.
+ready
+reason
+Reason / cash refund note
+receipt
+Receipts
+Recent bills
+redeem
+Redeem reward
+redemptions
+Refresh
+register
+Register team
+register_event
+Registered
+registrations
+Remove one
+reopen
+Reopen issue
+Report an issue
+Reports
+Request leave
+Resend code
+Reservation date · Malaysia time
+Reserve
+Reserved
+Reserved space
+reset
+resolution
+resolve
+Resolve with note
+Resolved
+resource_id
+resources
+Restart
+Restart this lap?
+restock
+Retired
+Revenue mix
+REVERSE
+Reviewed
+Reward name
+Rewards
+role
+roomPlayers
+Roster
+Run
+Run a better club.
+Running
+Sanitize desks
+Save
+Save new password
+Save profile
+save_category
+save_event
+save_product
+save_resource
+save_reward
+scan
+Scan entry QR
+Scanner unavailable. Use the entry code instead.
+scanToken
+schedule
+Scheduled
+search
+Search drinks & bites
+See whether the team has reviewed your feedback.
+See you next session?
+select
+selectedBooking
+selectedEvent
+selectedResource
+Send feedback
+Send recovery code
+sendFeedback
+Sessions
+Settings
+settingsReturn
+Share receipt
+Share revenue report
+Shift complete
+Shift end
+Shift start
+shift_id
+shifts
+Shopping bag
+Show entry QR
+Show password
+Show this to the crew when your session begins. This code can only be checked in once.
+Show tour destinations
+Show your voucher at the counter
+Sign in
+Sign in to join
+Sign in to send feedback.
+Sign in. Pick your space. Make it a good night.
+Sign out
+Sign out of this account.
+Simulator
+Simulator lab
+Small stage.\nBig moments.
+Snooker
+Social
+Sold out
+Solo
+Space
+Space name
+Spaces
+Specifications / description
+spent
+Squad
+staff
+Staff and managers only. Your tools, in one place.
+Staff CTFLY
+Staff CTFLY · Malaysia\nStaff and administrators only. Contact your manager for access.
+Staff member
+Standard
+Standard or private VIP cockpit · One driver per simulator
+Start time
+Start your shift  →
+start_time
+Starts
+starts_at
+status
+Step away to close the door
+stock
+Stock drinks
+Stock movements
+stock_records
+Suggestion
+Suggestions and issues from the app.
+Supplier / restock note
+Take a kart 🏁
+Take it outside.
+Take lift
+task
+task_done
+tasks
+team
+Team / player name
+Team slots (2–64)
+teamName
+Tell us what works and what we can improve.
+Test headsets
+text
+text/plain
+THE ARENA
+THE CTFLY EXPERIENCE
+The next match is coming
+THE PEOPLE BEHIND THE PLAY
+THE PIT STOP
+The prepaid package charge remains unchanged.
+The shift journal.
+This pass is no longer available. Refresh your bookings.
+threshold
+ticket
+tickets
+time
+title
+Title: 3–120 characters. Feedback: 10–2000 characters.
+Toggle floor map
+token
+total
+Tour
+Tour controls
+Tour picture quality
+tour3d
+tourDoors
+tourJoystick
+tourJump
+tourKartBest
+Tournament
+Tournament bracket
+Tournament name
+tournament_banner
+tourPose
+tourQuality
+tourRace
+tourSprint
+true
+Try another search or category.
+Type
+Ultra keeps the scene sharp. Choose Balanced or Smooth if moving feels slow.
+Upcoming & live
+Urgent
+user_id
+Venue floor map
+verify
+Verify & check in
+Verify code
+View / share receipt
+View all
+VIP
+VIP simulator
+VIPRoom
+Void unfulfilled payment
+void_bill
+Walk freely • Drag to look around
+Walk through CTFLY
+Ways to unwind
+We’ll send a recovery code to your registered email.
+Week begins
+Weekdays
+Weekend
+Weekly roster
+weekly_roster
+WELCOME TO YOUR NEXT LEVEL
+Welcome, player
+What needs attention?
+What was fixed?
+Where next?
+winMatch
+winName
+winner
+winTeam
+Withdraw entry
+withdraw_event
+Working days
+Write a handover
+Year
+Yes
+YOUR AFTER-HOURS UPGRADE
+Your bag is empty
+Your cravings belong here
+Your current run will reset. Your best lap stays saved.
+YOUR DAY, SORTED
+Your entry pass
+Your feedback
+Your game.\nYour space.
+Your manager will add your schedule here.
+Your name and feedback will be visible to our staff.
+Your next great game.
+Your next move
+YOUR NEXT SESSION
+Your next session starts in Play.
+Your pit stop order
+Your plans.
+Your player pass
+Your player pass.
+Your rewards
+Your shift starts here.
+Your unpaid space will be released.
+zh
+zone
