@@ -23,12 +23,19 @@ class TourRenderer(
     initialDoors: Int = 0,
     private val onDoors: (Int) -> Unit = {},
     initialBest: Float = 0f,
+    private val surveillance: Boolean = false,
 ) : GLSurfaceView.Renderer {
     internal val usesModernShaders: Boolean
         get() = modernShaders
 
     @Volatile
     internal var renderedSize: Pair<Int, Int> = 0 to 0
+        private set
+
+    @Volatile
+    internal var monitoredVisitors: List<VirtualVisitor> = emptyList()
+        private set
+    @Volatile internal var visibleCameraDirections: List<TourPose> = emptyList()
         private set
 
     @Volatile var strafe = 0f
@@ -52,6 +59,29 @@ class TourRenderer(
     private var movingCount = 0
     private var kartOffset = 0
     private var kartCount = 0
+    private var visitorBodyOffset = 0
+    private var visitorBodyCount = 0
+    private var visitorLegOffset = 0
+    private var visitorLegCount = 0
+    private var visitorArmOffset = 0
+    private var visitorArmCount = 0
+    private val visitorMotion = VirtualVisitorMotion()
+    private var cameraMountOffset = 0
+    private var cameraMountCount = 0
+    private var cameraHeadOffset = 0
+    private var cameraHeadCount = 0
+    private var monitorIndex = 0
+    private var followVisitor: String? = null
+    private var localControlUntil = 0L
+    @Volatile internal var monitorControlled = false
+        private set
+    private val cameraLooks = VirtualCctv.cameras.map { TourLook(it.pose.yaw, it.pose.pitch) }
+    private val cameraStates = mutableMapOf<Int, Pair<VirtualCameraState, Long>>()
+    private var scanClockOffset = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+    @Volatile internal var monitorDirection: VirtualCameraState? = null
+        private set
+    private var monitorHeight = 2.8f
+    private var monitorZoom = 1f
     private val doorAngles =
         FloatArray(WashroomDoors.doors.size) { if (doorMask and (1 shl it) != 0) 90f else 0f }
     private val model = FloatArray(16)
@@ -91,6 +121,7 @@ class TourRenderer(
     private var firstFrame = true
     private var uMatrix = 0
     private var uCamera = 0
+    private var uModel = 0
     private val lightMatrix = FloatArray(16)
     private var shadowTexture = 0
     private var shadowAvailable = false
@@ -115,11 +146,59 @@ class TourRenderer(
     private val look = TourLook(initial.yaw, initial.pitch)
 
     fun look(yaw: Float, pitch: Float) {
-        if (race == null) look.add(yaw, pitch)
+        if (surveillance && (yaw != 0f || pitch != 0f)) {
+            followVisitor = null
+            val camera = VirtualCctv.cameras[monitorIndex]
+            val current = cameraStates[monitorIndex]?.first
+            val direction = VirtualCctv.constrained(camera,
+                (current?.yaw ?: pose.yaw) + yaw, (current?.pitch ?: pose.pitch) + pitch)
+            cameraStates[monitorIndex] = VirtualCameraState(monitorIndex, direction.yaw, direction.pitch, 15_000L) to
+                android.os.SystemClock.elapsedRealtime()
+            localControlUntil = android.os.SystemClock.elapsedRealtime() + 15_000L
+        } else if (race == null) look.add(yaw, pitch)
+    }
+
+    fun showCameraStates(states: List<VirtualCameraState>, serverMillis: Long) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (serverMillis > 0) scanClockOffset = serverMillis - now
+        for (state in states) if (state.index in VirtualCctv.cameras.indices &&
+            !(surveillance && state.index == monitorIndex && (now < localControlUntil || followVisitor != null)))
+            cameraStates[state.index] = state to now
+    }
+
+    fun followMonitor(id: String?) { followVisitor = id }
+
+    fun homeMonitor() {
+        followVisitor = null
+        val camera = VirtualCctv.cameras[monitorIndex]
+        val now = android.os.SystemClock.elapsedRealtime()
+        cameraStates[monitorIndex] = VirtualCameraState(monitorIndex, camera.pose.yaw, camera.pose.pitch, 15000) to now
+        localControlUntil = now + 15000
     }
 
     fun resetFrameClock() {
         previous = 0L
+    }
+
+    fun showVisitors(visitors: List<VirtualVisitor>) {
+        if (surveillance) visitorMotion.update(visitors, android.os.SystemClock.elapsedRealtime())
+    }
+
+    fun monitorCamera(camera: VirtualCamera, zoom: Float = 1f) {
+        check(surveillance)
+        monitorHeight = camera.height
+        monitorIndex = VirtualCctv.cameras.indexOfFirst { it.name == camera.name }.coerceAtLeast(0)
+        followVisitor = null
+        localControlUntil = 0L
+        if (pose.area != camera.pose.area) go(TourStop(camera.name, camera.pose, ""))
+        else pose = camera.pose
+        zoomMonitor(zoom)
+    }
+
+    fun zoomMonitor(value: Float) {
+        if (!surveillance) return
+        monitorZoom = value.coerceIn(1f, 3f)
+        updateProjection()
     }
 
     fun go(stop: TourStop) {
@@ -231,7 +310,7 @@ class TourRenderer(
             maxLamps = min(14, max(1, limit[0] - 15))
             maxOccluders = max(1, min(32, limit[0] - maxLamps - 14))
             // Saved cameras from an older floor plan must not reopen inside new furniture.
-            if (!TourPlan.canStand(pose.x, pose.z, world.obstacles, pose.area))
+            if (!surveillance && !TourPlan.canStand(pose.x, pose.z, world.obstacles, pose.area))
                 pose = TourPlan.entry(pose.area).pose
             look.reset(pose.yaw, pose.pitch)
             val vs =
@@ -416,6 +495,7 @@ class TourRenderer(
             glUseProgram(program)
             uMatrix = glGetUniformLocation(program, "uMatrix")
             uCamera = glGetUniformLocation(program, "uCamera")
+            uModel = glGetUniformLocation(program, "uModel")
             glUniform1f(glGetUniformLocation(program, "uArea"), pose.area.ordinal.toFloat())
             val lamps =
                 when (pose.area) {
@@ -481,6 +561,33 @@ class TourRenderer(
                 kartOffset = movingCount
                 if (pose.area == TourArea.OUTDOOR) small.kart(0f, 0f, 0, false)
                 kartCount = small.vertices.size / 12 - kartOffset
+                visitorBodyOffset = small.vertices.size / 12
+                small.box(0f, 1.12f, 0f, .48f, .62f, .30f, 0x65D9CD, glow = .12f)
+                small.box(0f, 1.66f, 0f, .31f, .32f, .30f, 0xE2B78C)
+                small.box(0f, 1.70f, -.155f, .20f, .045f, .025f, 0x263848)
+                visitorBodyCount = small.vertices.size / 12 - visitorBodyOffset
+                visitorLegOffset = small.vertices.size / 12
+                small.box(0f, -.34f, 0f, .18f, .68f, .20f, 0x344C68)
+                small.box(0f, -.66f, -.055f, .20f, .12f, .32f, 0x172532)
+                visitorLegCount = small.vertices.size / 12 - visitorLegOffset
+                visitorArmOffset = small.vertices.size / 12
+                small.box(0f, -.28f, 0f, .15f, .56f, .19f, 0x65D9CD)
+                small.box(0f, -.59f, 0f, .14f, .12f, .17f, 0xE2B78C)
+                visitorArmCount = small.vertices.size / 12 - visitorArmOffset
+                cameraMountOffset = small.vertices.size / 12
+                small.box(0f, .06f, .65f, .30f, .42f, .08f, 0xD8DEE2)
+                small.box(0f, -.12f, .34f, .12f, .12f, .66f, 0xAEBAC4)
+                small.box(0f, -.05f, 0f, .18f, .24f, .18f, 0x536571)
+                // Conduit runs to the ceiling; the bracket remains stationary as the head pans.
+                small.box(0f, .40f, .68f, .045f, .35f, .045f, 0x536571)
+                cameraMountCount = small.vertices.size / 12 - cameraMountOffset
+                cameraHeadOffset = small.vertices.size / 12
+                small.box(0f, 0f, -.14f, .32f, .25f, .48f, 0xE4E9EB)
+                small.box(0f, .14f, -.17f, .38f, .045f, .59f, 0xBAC7D0)
+                small.box(0f, 0f, -.39f, .26f, .21f, .04f, 0x172532)
+                small.box(0f, 0f, -.417f, .12f, .12f, .025f, 0x427BA6, glow = .25f)
+                small.box(.10f, -.07f, -.418f, .025f, .025f, .028f, 0x69EDAC, glow = .8f)
+                cameraHeadCount = small.vertices.size / 12 - cameraHeadOffset
                 val data =
                     ByteBuffer.allocateDirect(small.vertices.size * 4)
                         .order(ByteOrder.nativeOrder())
@@ -761,17 +868,21 @@ class TourRenderer(
         viewportWidth = width
         viewportHeight = height
         android.util.Log.i("CTFLYTour", "${pose.area.name}: render surface ${width}x$height")
-        fieldOfView = if (width > height) 68f else 78f
         glViewport(0, 0, width, height)
+        updateProjection()
+        createPostSurface(width, height)
+    }
+
+    private fun updateProjection() {
+        fieldOfView = (if (viewportWidth > viewportHeight) 68f else 78f) / if (surveillance) monitorZoom else 1f
         Matrix.perspectiveM(
             projection,
             0,
-            if (width > height) 68f else 78f,
-            width.toFloat() / max(1, height),
+            fieldOfView,
+            viewportWidth.toFloat() / max(1, viewportHeight),
             .07f,
             if (pose.area == TourArea.OUTDOOR) 650f else 120f,
         )
-        createPostSurface(width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -779,6 +890,31 @@ class TourRenderer(
         val now = System.nanoTime()
         val dt = if (previous == 0L || experiencePaused) 0f else (now - previous) / 1e9f
         previous = now
+        val clock = android.os.SystemClock.elapsedRealtime()
+        if (surveillance) monitoredVisitors = visitorMotion.frame(clock).filter { it.pose.area == pose.area }
+        for ((index, camera) in VirtualCctv.cameras.withIndex()) {
+            if (camera.pose.area != pose.area) continue
+            val manual = cameraStates[index]?.takeIf { clock - it.second < it.first.remainingMillis }?.first
+            val target = if (surveillance && index == monitorIndex)
+                monitoredVisitors.firstOrNull { it.id == followVisitor } else null
+            val direction = when {
+                target != null -> VirtualCctv.aimed(camera, target.pose)
+                manual != null -> VirtualCctv.constrained(camera, manual.yaw, manual.pitch)
+                else -> VirtualCctv.scan(camera, (clock + scanClockOffset) / 1000.0)
+            }
+            cameraLooks[index].aim(direction.yaw, direction.pitch)
+            cameraLooks[index].step(dt)
+            if (surveillance && index == monitorIndex) {
+                pose = camera.pose.copy(yaw = cameraLooks[index].yaw, pitch = cameraLooks[index].pitch)
+                monitorDirection = VirtualCameraState(index, pose.yaw, pose.pitch,
+                    if (target != null) 2000 else (localControlUntil - clock).coerceIn(500, 15000))
+                monitorControlled = target != null || clock < localControlUntil
+            }
+        }
+        visibleCameraDirections = VirtualCctv.cameras.mapIndexedNotNull { index, camera ->
+            if (camera.pose.area != pose.area) null else camera.pose.copy(
+                yaw = cameraLooks[index].yaw, pitch = cameraLooks[index].pitch)
+        }
         val driving = race
         if (driving != null) {
             val advanced = KartPhysics.step(driving, strafe, throttle, brake, false, dt, reverse)
@@ -788,8 +924,10 @@ class TourRenderer(
             if (advanced.best > 0f) kartBest = advanced.best
             pose = TourPose(advanced.x, advanced.z, advanced.yaw, -.17f, TourArea.OUTDOOR)
         } else {
-            look.step(dt)
-            pose = pose.copy(yaw = look.yaw, pitch = look.pitch)
+            if (!surveillance) {
+                look.step(dt)
+                pose = pose.copy(yaw = look.yaw, pitch = look.pitch)
+            }
             var movingDoors = false
             for (door in WashroomDoors.inArea(pose.area)) {
                 val target = if (doorMask and (1 shl door.index) != 0) 90f else 0f
@@ -807,12 +945,21 @@ class TourRenderer(
                             else it.obstacle(doorMask and (1 shl it.index) != 0)
                         }
             }
-            pose =
-                TourPlan.move(pose, strafe, forward, dt, doorCollision, if (sprint) 7.2f else 4.5f)
+            if (!surveillance)
+                pose =
+                    TourPlan.move(
+                        pose,
+                        strafe,
+                        forward,
+                        dt,
+                        doorCollision,
+                        if (sprint) 7.2f else 4.5f,
+                    )
             jump.step(dt)
         }
         val p = pose
-        val eye = if (driving != null) 2.8f else 1.65f + jump.height
+        val eye =
+            if (surveillance) monitorHeight else if (driving != null) 2.8f else 1.65f + jump.height
         val cameraX = if (driving != null) p.x - sin(p.yaw) * 5f else p.x
         val cameraZ = if (driving != null) p.z + cos(p.yaw) * 5f else p.z
         Matrix.setLookAtM(
@@ -837,7 +984,7 @@ class TourRenderer(
         glUseProgram(program)
         glUniformMatrix4fv(uMatrix, 1, false, vp, 0)
         Matrix.setIdentityM(model, 0)
-        glUniformMatrix4fv(glGetUniformLocation(program, "uModel"), 1, false, model, 0)
+        glUniformMatrix4fv(uModel, 1, false, model, 0)
         glUniform3f(uCamera, cameraX, eye, cameraZ)
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, texture)
@@ -875,7 +1022,7 @@ class TourRenderer(
                     Matrix.setIdentityM(model, 0)
                     Matrix.translateM(model, 0, door.x, 0f, door.z)
                     Matrix.rotateM(model, 0, doorAngles[door.index], 0f, 1f, 0f)
-                    glUniformMatrix4fv(glGetUniformLocation(program, "uModel"), 1, false, model, 0)
+                    glUniformMatrix4fv(uModel, 1, false, model, 0)
                     glDrawArrays(GL_TRIANGLES, 0, movingCount)
                 }
             }
@@ -883,8 +1030,60 @@ class TourRenderer(
                 Matrix.setIdentityM(model, 0)
                 Matrix.translateM(model, 0, p.x, 0f, p.z)
                 Matrix.rotateM(model, 0, -p.yaw * 180f / PI.toFloat(), 0f, 1f, 0f)
-                glUniformMatrix4fv(glGetUniformLocation(program, "uModel"), 1, false, model, 0)
+                glUniformMatrix4fv(uModel, 1, false, model, 0)
                 glDrawArrays(GL_TRIANGLES, kartOffset, kartCount)
+            }
+            if (surveillance) {
+                val visitors = monitoredVisitors
+                for (visitor in visitors) {
+                    val v = visitor.pose
+                    val swing =
+                        if (visitor.moving && !visitor.kart) sin(now / 1e9 * 9).toFloat() * 28f
+                        else 0f
+                    fun part(
+                        offset: Int,
+                        count: Int,
+                        x: Float = 0f,
+                        y: Float = 0f,
+                        angle: Float = 0f,
+                    ) {
+                        Matrix.setIdentityM(model, 0)
+                        Matrix.translateM(model, 0, v.x, if (visitor.kart) .25f else 0f, v.z)
+                        Matrix.rotateM(model, 0, -v.yaw * 180f / PI.toFloat(), 0f, 1f, 0f)
+                        Matrix.translateM(model, 0, x, y, 0f)
+                        Matrix.rotateM(model, 0, angle, 1f, 0f, 0f)
+                        glUniformMatrix4fv(
+                            uModel,
+                            1,
+                            false,
+                            model,
+                            0,
+                        )
+                        glDrawArrays(GL_TRIANGLES, offset, count)
+                    }
+                    if (visitor.kart && kartCount > 0) part(kartOffset, kartCount)
+                    part(visitorBodyOffset, visitorBodyCount)
+                    if (!visitor.kart) {
+                        part(visitorLegOffset, visitorLegCount, -.13f, .77f, swing)
+                        part(visitorLegOffset, visitorLegCount, .13f, .77f, -swing)
+                    }
+                    part(visitorArmOffset, visitorArmCount, -.33f, 1.38f, -swing)
+                    part(visitorArmOffset, visitorArmCount, .33f, 1.38f, swing)
+                }
+            }
+            for ((index, camera) in VirtualCctv.cameras.withIndex()) {
+                if (camera.pose.area != p.area || surveillance && index == monitorIndex) continue
+                Matrix.setIdentityM(model, 0)
+                Matrix.translateM(model, 0, camera.pose.x, camera.height, camera.pose.z)
+                Matrix.rotateM(model, 0, -camera.wallYaw * 180f / PI.toFloat(), 0f, 1f, 0f)
+                glUniformMatrix4fv(uModel, 1, false, model, 0)
+                glDrawArrays(GL_TRIANGLES, cameraMountOffset, cameraMountCount)
+                Matrix.setIdentityM(model, 0)
+                Matrix.translateM(model, 0, camera.pose.x, camera.height, camera.pose.z)
+                Matrix.rotateM(model, 0, -cameraLooks[index].yaw * 180f / PI.toFloat(), 0f, 1f, 0f)
+                Matrix.rotateM(model, 0, cameraLooks[index].pitch * 180f / PI.toFloat(), 1f, 0f, 0f)
+                glUniformMatrix4fv(uModel, 1, false, model, 0)
+                glDrawArrays(GL_TRIANGLES, cameraHeadOffset, cameraHeadCount)
             }
         }
         if (postReady) drawPost()
@@ -906,9 +1105,6 @@ class TourRenderer(
             onPose(p)
             onRace(race)
         }
-        // Limit mobile GPU usage to approximately 30 FPS, and skip long pause deltas above.
-        val remaining = 33_333_333L - (System.nanoTime() - now)
-        if (remaining > 1_000_000L) Thread.sleep(remaining / 1_000_000L)
     }
 
     /** Edge-only FXAA: available even when the display offers no MSAA configuration. */

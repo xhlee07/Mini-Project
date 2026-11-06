@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
@@ -31,7 +30,7 @@ fun TestModeNotice() {
 @Composable
 fun TestPayButton(vm: AppViewModel, kind: String, id: String) {
     if (vm.testPaymentsEnabled && !vm.crew)
-        Button(onClick = { vm.openCheckout(kind, id) }, enabled = !vm.busy) {
+        Button(onClick = { vm.openCheckout(kind, id) }, enabled = !vm.busy && !vm.checkoutLeaving) {
             AppText("Pay in test mode")
         }
 }
@@ -65,9 +64,12 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
     }
     Column(Modifier.fillMaxSize().background(Ink).safeDrawingPadding()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { AppIcon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
+            IconButton(onClick = onBack, enabled = !vm.checkoutLeaving) {
+                AppIcon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
+            }
             AppText("Test checkout", style = MaterialTheme.typography.titleLarge)
         }
+        if (vm.checkoutLeaving) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Lime)
         if (vm.message.isNotBlank()) {
             Surface(color = Orange.copy(alpha = .12f)) {
                 Row(
@@ -91,6 +93,10 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { TestModeNotice() }
+            if (!vm.crew && vm.field("checkoutKind") == "Order" && status != "Succeeded")
+                item {
+                    AppText("Your order appears in Orders after payment succeeds.", color = Muted)
+                }
             if (vm.crew) item { AppText(pay.text("customer_name"), fontWeight = FontWeight.Bold) }
             if (q.length() > 0)
                 item {
@@ -138,7 +144,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                                     )
                                     vm.reloadCheckout()
                                 },
-                                enabled = !vm.busy,
+                                enabled = !vm.busy && !vm.checkoutLeaving,
                             ) {
                                 AppText("Apply / remove code")
                             }
@@ -172,7 +178,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 .forEach { (key, label) ->
                                     OutlinedButton(
                                         onClick = { vm.set("checkoutMethod", key) },
-                                        enabled = !vm.busy,
+                                        enabled = !vm.busy && !vm.checkoutLeaving,
                                         modifier =
                                             Modifier.fillMaxWidth()
                                                 .heightIn(min = 56.dp)
@@ -185,7 +191,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 }
                             Button(
                                 onClick = { vm.startTestPayment() },
-                                enabled = !vm.busy && !expired,
+                                enabled = !vm.busy && !vm.checkoutLeaving && !expired,
                                 modifier =
                                     Modifier.fillMaxWidth()
                                         .heightIn(min = 56.dp)
@@ -215,7 +221,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                             )
                         Button(
                             onClick = { vm.resolveTestPayment("Success") },
-                            enabled = !vm.busy,
+                            enabled = !vm.busy && !vm.checkoutLeaving,
                             modifier =
                                 Modifier.fillMaxWidth()
                                     .heightIn(min = 56.dp)
@@ -228,14 +234,14 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                         if (showDemo) {
                             OutlinedButton(
                                 onClick = { vm.resolveTestPayment("Failure") },
-                                enabled = !vm.busy,
+                                enabled = !vm.busy && !vm.checkoutLeaving,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 AppText("Simulate failure")
                             }
                             OutlinedButton(
                                 onClick = { vm.resolveTestPayment("Pending") },
-                                enabled = !vm.busy,
+                                enabled = !vm.busy && !vm.checkoutLeaving,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 AppText("Simulate processing")
@@ -243,7 +249,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                         }
                         TextButton(
                             onClick = { vm.resolveTestPayment("Cancel") },
-                            enabled = !vm.busy,
+                            enabled = !vm.busy && !vm.checkoutLeaving,
                         ) {
                             AppText("Cancel test payment")
                         }
@@ -271,12 +277,12 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                                     vm.set("dialog", "receipt")
                                 }
                             ) {
-                                AppText("View / share receipt")
+                                AppText("View receipt")
                             }
                         if (vm.canRefundTestPayment(pay))
                             OutlinedButton(
                                 onClick = { vm.set("dialog", "testRefund") },
-                                enabled = !vm.busy,
+                                enabled = !vm.busy && !vm.checkoutLeaving,
                             ) {
                                 AppText("Request test refund")
                             }
@@ -300,7 +306,7 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                                 onClick = {
                                     vm.openCheckout(pay.text("kind"), pay.text("source_id"))
                                 },
-                                enabled = !vm.busy,
+                                enabled = !vm.busy && !vm.checkoutLeaving,
                             ) {
                                 AppText("Retry test checkout")
                             }
@@ -308,7 +314,9 @@ fun CheckoutScreen(vm: AppViewModel, onBack: () -> Unit) {
                 }
             item {
                 if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = Lime)
-                TextButton(onClick = onBack) { AppText("Back to your plans") }
+                TextButton(onClick = onBack, enabled = !vm.checkoutLeaving) {
+                    AppText("Back to your plans")
+                }
             }
         }
     }
@@ -319,40 +327,5 @@ private fun AmountLine(label: String, value: Int) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         AppText(label, color = Muted)
         AppText(money(value), fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun TransactionsScreen(vm: AppViewModel) {
-    LazyColumn(
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                AppText("Test transactions", style = MaterialTheme.typography.headlineMedium)
-                TestModeNotice()
-            }
-        }
-        items(vm.rows("test_payments"), key = { it.text("id") }) { p ->
-            SurfaceCard {
-                Chip(p.text("status"), if (p.text("status") == "Succeeded") Lime else Orange)
-                if (vm.crew) {
-                    AppText(p.text("customer_name"), fontWeight = FontWeight.Bold)
-                }
-                AppText("${p.text("kind")} · ${money(p.optInt("total"))} · ${p.text("method")}")
-                AppText(p.text("reference"), color = Muted, localize = false)
-                AppText(dateLabel(p.text("created_at")), color = Muted)
-                TextButton(onClick = { vm.resumeCheckout(p) }) {
-                    AppText(
-                        if (p.text("status") in listOf("Pending", "Processing") && !vm.crew)
-                            "Resume test payment"
-                        else "Payment details"
-                    )
-                }
-            }
-        }
-        if (vm.rows("test_payments").isEmpty())
-            item { EmptyState("No test transactions yet", "Test payments will appear here.") }
     }
 }

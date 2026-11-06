@@ -10,6 +10,12 @@ interface ClubGateway {
     val cachedSnapshot: JSONObject
         get() = JSONObject()
 
+    val accountId: String
+        get() = cachedSnapshot.optJSONObject("profile")?.text("id").orEmpty()
+
+    val accountEmail: String
+        get() = cachedSnapshot.optJSONObject("profile")?.text("email").orEmpty()
+
     suspend fun service(body: JSONObject): JSONObject =
         throw IllegalStateException("Receipt service is not available yet.")
 
@@ -23,6 +29,13 @@ interface ClubGateway {
     ): JSONObject
 
     suspend fun login(email: String, password: String)
+
+    suspend fun staffDevice(body: JSONObject, authenticated: Boolean = true): JSONObject =
+        throw IllegalStateException("Device sign-in is not available yet.")
+
+    suspend fun loginDevice(body: JSONObject) {
+        throw IllegalStateException("Device sign-in is not available yet.")
+    }
 
     suspend fun signup(
         email: String,
@@ -47,4 +60,10 @@ interface ClubGateway {
 
 class CtflyApplication : Application() {
     var gatewayFactory: (Context) -> ClubGateway = { CtflyApi(it) }
+    var staffSessionFactory: (Context) -> StaffSession = { StaffSession(it) }
+
+    override fun onCreate() {
+        super.onCreate()
+        PickupNotifications.createChannel(this)
+    }
 }

@@ -751,3 +751,204 @@ Receipt email is being sent.	正在寄送收据邮件。	E-mel resit sedang diha
 Receipt email is queued.	收据邮件正在排队寄送。	E-mel resit sedang beratur.
 Email delivery needs the cafe's mail service configuration.	请先由网吧配置邮件服务，才能寄送收据。	Perkhidmatan e-mel kafe perlu dikonfigurasi dahulu.
 Email could not be sent. You can retry below.	邮件未能寄出，您可以在下方重试。	E-mel tidak dapat dihantar. Anda boleh cuba semula di bawah.
+Full receipt sent to your registered email.	完整收据已寄到你的注册邮箱。	Resit penuh dihantar ke e-mel berdaftar anda.
+Your full receipt is being emailed.	正在寄送完整收据。	Resit penuh anda sedang dihantar melalui e-mel.
+Your full receipt is queued for email.	完整收据等待寄送到邮箱。	Resit penuh anda menunggu untuk dihantar melalui e-mel.
+View full receipt (PDF)	查看完整收据（PDF）	Lihat resit penuh (PDF)
+Total paid	已付总额	Jumlah dibayar
+Test total	测试总额	Jumlah ujian
+Voided total	已作废金额	Jumlah dibatalkan
+Date	日期	Tarikh
+Time	时间	Masa
+View receipt	查看收据	Lihat resit
+Test payment. No real money was charged.	测试付款，没有实际扣款。	Pembayaran ujian. Tiada wang sebenar dicaj.
+Email receipt is unavailable. You can still view the full PDF.	暂时无法寄送收据，你仍可查看完整 PDF。	Resit e-mel tidak tersedia. Anda masih boleh melihat PDF penuh.
+
+Your café orders	你的餐饮订单	Pesanan kafe anda
+{0} item(s) in your order	订单中有 {0} 件商品	{0} item dalam pesanan anda
+{0} order(s) awaiting payment	{0} 笔订单等待付款	{0} pesanan menunggu pembayaran
+Payment & pickup in one place	付款与取餐，一处查看	Pembayaran & pengambilan di satu tempat
+Review & pay	查看并付款	Semak & bayar
+Pay for order	支付订单	Bayar pesanan
+View orders	查看订单	Lihat pesanan
+Your order is ready!	你的餐点准备好了！	Pesanan anda sudah siap!
+Please come to the café counter. Show your pickup QR to staff to collect your order.	请到餐饮柜台，向工作人员出示取餐二维码领取餐点。	Sila ke kaunter kafe. Tunjukkan QR pengambilan kepada staf untuk mengambil pesanan.
+Show pickup QR	出示取餐二维码	Tunjukkan QR pengambilan
+Collected. Enjoy your food!	已取餐，祝你用餐愉快！	Sudah diambil. Selamat menjamu selera!
+We’re preparing your order. We’ll let you know when it’s ready.	正在准备你的餐点，完成后会通知你。	Kami sedang menyediakan pesanan anda. Kami akan maklumkan apabila siap.
+Order collected	已取餐	Pesanan telah diambil
+Pickup QR is not available yet	取餐二维码尚未开放	QR pengambilan belum tersedia
+Your pickup QR appears when your paid order is ready.	付款完成且餐点准备好后，便会显示取餐二维码。	QR pengambilan dipaparkan apabila pesanan berbayar anda sudah siap.
+Pickup is being updated. Please ask staff for help.	取餐功能正在更新，请向工作人员寻求帮助。	Fungsi pengambilan sedang dikemas kini. Sila minta bantuan staf.
+Order pickup QR code	订单取餐二维码	Kod QR pengambilan pesanan
+Show this QR to staff at the café counter. Staff will scan it before handing over your order. This code can only be used once.	请在餐饮柜台向工作人员出示此二维码。工作人员扫码确认后会把餐点交给你。此码仅能使用一次。	Tunjukkan QR ini kepada staf di kaunter kafe. Staf akan mengimbasnya sebelum menyerahkan pesanan. Kod ini hanya boleh digunakan sekali.
+Collect your order	领取餐点	Ambil pesanan anda
+Verify café pickup	核实餐饮取餐	Sahkan pengambilan kafe
+Counter pickup · Collect with your order QR when ready	柜台取餐 · 餐点备好后凭订单二维码领取	Ambil di kaunter · Gunakan QR pesanan apabila siap
+Continue to payment	继续付款	Teruskan ke pembayaran
+Waiting for the customer's pickup QR.	等待顾客出示取餐二维码。	Menunggu QR pengambilan pelanggan.
+Scan pickup QR	扫描取餐二维码	Imbas QR pengambilan
+Paid · Ready for pickup	已付款 · 可以取餐	Sudah dibayar · Sedia untuk diambil
+Check the items, then hand the order to this customer.	请核对商品，再将餐点交给这位顾客。	Semak item, kemudian serahkan pesanan kepada pelanggan ini.
+Confirm handover	确认交餐	Sahkan penyerahan
+Scan the QR shown in the customer's ready order. Payment, readiness and prior collection are checked by the server.	请扫描顾客已备好订单中的二维码。系统会核对付款、备餐及是否已领取。	Imbas QR dalam pesanan pelanggan yang sudah siap. Pelayan akan menyemak pembayaran, kesediaan dan pengambilan terdahulu.
+This is not a café pickup QR. Ask the customer to open their ready order.	这不是餐饮取餐二维码，请顾客打开已备好的订单。	Ini bukan QR pengambilan kafe. Minta pelanggan membuka pesanan yang sudah siap.
+Scanner unavailable. Please try scanning again.	扫码功能暂时无法使用，请重试。	Pengimbas tidak tersedia. Sila cuba imbas semula.
+Don’t miss your pickup	别错过取餐通知	Jangan terlepas waktu pengambilan
+Allow notifications so we can let you know when your café order is ready.	开启通知，餐点准备好时我们会提醒你。	Benarkan pemberitahuan supaya kami boleh memaklumkan apabila pesanan kafe anda siap.
+Enable pickup alerts	开启取餐提醒	Aktifkan makluman pengambilan
+Pick up at the café counter	请到餐饮柜台取餐	Ambil di kaunter kafe
+Show QR	出示二维码	Tunjukkan QR
+Received	已取餐	Sudah diambil
+Order #{0} · Come to the café counter and show your pickup QR to staff.	订单 #{0} · 请到餐饮柜台，向工作人员出示取餐二维码。	Pesanan #{0} · Datang ke kaunter kafe dan tunjukkan QR pengambilan kepada staf.
+This order has already been collected.	这笔订单已经取餐。	Pesanan ini telah diambil.
+Only paid orders marked Ready can be collected.	仅限已付款且准备好的订单取餐。	Hanya pesanan berbayar yang ditanda siap boleh diambil.
+Pickup verified. Check the items before handover.	取餐验证通过，请核对商品后交餐。	Pengambilan disahkan. Semak item sebelum penyerahan.
+Order collected. Enjoy your food!	取餐完成，祝你用餐愉快！	Pesanan telah diambil. Selamat menjamu selera!
+This is not a café pickup QR.	这不是餐饮取餐二维码。	Ini bukan QR pengambilan kafe.
+Pickup QR not found. Ask the customer to open their ready order.	找不到此取餐二维码，请顾客打开已备好的订单。	QR pengambilan tidak ditemui. Minta pelanggan membuka pesanan yang sudah siap.
+Modules	模块	Modul
+Staff modules	员工模块	Modul staf
+STAFF TOOLS	员工工具	ALAT STAF
+Find a record or manage the next event.	查找记录，或管理下一场活动。	Cari rekod atau urus acara seterusnya.
+Open module	打开模块	Buka modul
+CUSTOMER ACTIVITY	顾客活动记录	AKTIVITI PELANGGAN
+Customer history	顾客历史记录	Sejarah pelanggan
+Bookings, café orders, competition entries and reward redemptions.	查看预约、餐饮订单、电竞报名和积分兑换记录。	Lihat tempahan, pesanan kafe, penyertaan pertandingan dan penebusan ganjaran.
+Payment records, references and receipts.	查看付款记录、交易编号和收据。	Lihat rekod pembayaran, rujukan dan resit.
+Review suggestions and issues by date.	按日期查看建议与问题反馈。	Semak cadangan dan isu mengikut tarikh.
+Manage competitions and promo codes.	管理电竞比赛与优惠码。	Urus pertandingan dan kod promosi.
+All dates	所有日期	Semua tarikh
+Choose date	选择日期	Pilih tarikh
+Previous day	前一天	Hari sebelumnya
+Next day	后一天	Hari seterusnya
+Apply	应用	Terapkan
+Session / competition date · Orders / rewards by creation date · Malaysia time	预约／比赛按举行日期；订单／兑换按创建日期 · 马来西亚时间	Tarikh sesi / pertandingan · Pesanan / ganjaran mengikut tarikh dibuat · Waktu Malaysia
+Payment creation date · Malaysia time	付款创建日期 · 马来西亚时间	Tarikh pembayaran dibuat · Waktu Malaysia
+Submission date · Malaysia time	提交日期 · 马来西亚时间	Tarikh dihantar · Waktu Malaysia
+Shift / mission / leave date · Malaysia time	排班／任务／请假日期 · 马来西亚时间	Tarikh syif / tugasan / cuti · Waktu Malaysia
+Handover date · Malaysia time	交接日期 · 马来西亚时间	Tarikh serahan · Waktu Malaysia
+Issue reported date · Malaysia time	设备问题报告日期 · 马来西亚时间	Tarikh isu dilaporkan · Waktu Malaysia
+Competition / offer start date · Malaysia time	比赛／优惠开始日期 · 马来西亚时间	Tarikh mula pertandingan / tawaran · Waktu Malaysia
+Competition start date · Malaysia time	比赛开始日期 · 马来西亚时间	Tarikh mula pertandingan · Waktu Malaysia
+Stock movement date · Malaysia time	库存变动日期 · 马来西亚时间	Tarikh pergerakan stok · Waktu Malaysia
+Shift / leave date · Malaysia time	排班／请假日期 · 马来西亚时间	Tarikh syif / cuti · Waktu Malaysia
+Payment / session / attendance date · Malaysia time	付款／预约／出勤日期 · 马来西亚时间	Tarikh pembayaran / sesi / kehadiran · Waktu Malaysia
+Paid revenue · selected date	已付款收入 · 所选日期	Hasil berbayar · Tarikh dipilih
+Search customer, item or reference	搜索顾客、项目或编号	Cari pelanggan, item atau rujukan
+Refresh history	刷新记录	Muat semula sejarah
+No records found	没有符合的记录	Tiada rekod ditemui
+Try another date, category or customer.	试试其他日期、分类或顾客。	Cuba tarikh, kategori atau pelanggan lain.
+Load more records	加载更多记录	Muatkan lagi rekod
+History could not be loaded. Check your connection and try again.	无法加载记录，请检查网络后重试。	Sejarah tidak dapat dimuatkan. Semak sambungan anda dan cuba lagi.
+One scanner. Ready to help.	一个扫码入口，入场取餐都能用。	Satu pengimbas. Sedia membantu.
+Scan an entry pass or café pickup QR. We’ll open the right verification step.	扫描入场或取餐二维码，系统会自动进入对应验证步骤。	Imbas pas masuk atau QR pengambilan kafe. Kami akan membuka langkah pengesahan yang sesuai.
+Scan QR	扫码	Imbas QR
+Use Scan QR above to confirm collection.	请使用上方的扫码按钮确认取餐。	Gunakan Imbas QR di atas untuk mengesahkan pengambilan.
+Verify QR code	验证二维码	Sahkan kod QR
+Entry or pickup code	入场或取餐码	Kod masuk atau pengambilan
+Entry passes check booking time and payment. Pickup codes check payment, readiness and prior collection.	入场码会验证预约时间与付款；取餐码会验证付款、备餐状态及是否已领取。	Pas masuk menyemak masa tempahan dan bayaran. Kod pengambilan menyemak bayaran, kesediaan dan sama ada sudah diambil.
+Scanner unavailable. Enter the customer's QR code manually or try again.	暂时无法扫码，请手动输入顾客的二维码内容或重试。	Pengimbas tidak tersedia. Masukkan kod QR pelanggan secara manual atau cuba lagi.
+This QR is not supported. Scan a CTFLY entry pass or café pickup QR.	不支持此二维码，请扫描 CTFLY 入场码或取餐码。	QR ini tidak disokong. Imbas pas masuk CTFLY atau QR pengambilan kafe.
+{0} order(s) in progress	{0} 笔订单处理中	{0} pesanan sedang diproses
+{0} points used	已使用 {0} 积分	{0} mata digunakan
+{0} min · {1} guest(s)	{0} 分钟 · {1} 人	{0} minit · {1} tetamu
+Collected · {0}	已取餐 · {0}	Sudah diambil · {0}
+Points redemption	积分兑换	Penebusan mata
+Session date · Malaysia time	预约日期 · 马来西亚时间	Tarikh sesi · Waktu Malaysia
+Order date · Malaysia time	订单日期 · 马来西亚时间	Tarikh pesanan · Waktu Malaysia
+Redemption date · Malaysia time	兑换日期 · 马来西亚时间	Tarikh penebusan · Waktu Malaysia
+Activity date · Malaysia time	活动日期 · 马来西亚时间	Tarikh aktiviti · Waktu Malaysia
+Bookings and competitions use their scheduled date.	预约与比赛按预定举行日期筛选。	Tempahan dan pertandingan menggunakan tarikh dijadualkan.
+Past readiness checks are read-only.	过去的准备检查记录仅供查看。	Semakan kesiapsiagaan lalu adalah untuk bacaan sahaja.
+Back to modules	返回模块	Kembali ke modul
+Transaction type	交易类型	Jenis transaksi
+Payment status	付款状态	Status pembayaran
+All types	所有类型	Semua jenis
+All statuses	所有状态	Semua status
+Extensions	加时	Lanjutan masa
+Opening your account…	正在打开你的账号…	Membuka akaun anda…
+Your account is saved	已保留你的登录	Akaun anda telah disimpan
+Connect to the internet to load your account.	连接网络后即可加载你的账号。	Sambung ke internet untuk memuatkan akaun anda.
+Use another account	使用其他账号	Gunakan akaun lain
+Fingerprint	指纹	Cap jari
+Use fingerprint next time?	下次使用指纹解锁？	Gunakan cap jari pada masa akan datang?
+Staff security	员工安全	Keselamatan kakitangan
+Turn off fingerprint	关闭指纹解锁	Matikan cap jari
+Enable fingerprint	开启指纹解锁	Aktifkan cap jari
+Use your staff account password on this device.	此设备使用员工账号密码验证。	Gunakan kata laluan akaun kakitangan pada peranti ini.
+Your staff session is locked. Sign in again to continue.	员工工作区已锁定，请重新验证后继续。	Sesi kakitangan dikunci. Log masuk semula untuk meneruskan.
+Enter your staff account password.	请输入员工账号密码。	Masukkan kata laluan akaun kakitangan anda.
+Fingerprint is unavailable. Use your staff account password.	指纹暂时无法使用，请使用员工账号密码。	Cap jari tidak tersedia. Gunakan kata laluan akaun kakitangan anda.
+Fingerprint settings have changed or are unavailable. Use your staff account password.	指纹设置已更改或暂时无法使用，请使用员工账号密码。	Tetapan cap jari berubah atau tidak tersedia. Gunakan kata laluan akaun kakitangan anda.
+Fingerprint could not be verified. Use your staff account password.	无法验证指纹，请使用员工账号密码。	Cap jari tidak dapat disahkan. Gunakan kata laluan akaun kakitangan anda.
+Staff access is no longer available.	此账号已无法使用员工功能。	Akses kakitangan tidak lagi tersedia.
+Sign in with fingerprint	使用指纹登录	Log masuk dengan cap jari
+Sign in with your email and password once to enable fingerprint on this phone.	请先使用邮箱和密码登录一次，再为此手机开启指纹登录。	Log masuk sekali dengan e-mel dan kata laluan untuk mengaktifkan cap jari pada telefon ini.
+For a different account, sign in with email and password.	如需使用其他账号，请输入邮箱和密码登录。	Untuk akaun lain, log masuk dengan e-mel dan kata laluan.
+Sign in faster on this phone with its enrolled biometrics. Anyone enrolled on this phone can sign in to this staff account. You can always use email and password instead.	使用手机已录入的生物识别快速登录。此手机中已录入生物识别的人都能登录这个员工账号，也可以随时改用邮箱和密码。	Log masuk lebih pantas dengan biometrik telefon ini. Sesiapa yang didaftarkan pada telefon ini boleh log masuk ke akaun kakitangan ini. E-mel dan kata laluan sentiasa boleh digunakan.
+Choose how you sign in on this phone.	选择此手机的登录方式。	Pilih cara anda log masuk pada telefon ini.
+Fingerprint sign-in is on for this phone.	此手机已开启指纹登录。	Log masuk cap jari diaktifkan pada telefon ini.
+Sign in with email and password to set up fingerprint.	使用邮箱和密码登录后即可设置指纹登录。	Log masuk dengan e-mel dan kata laluan untuk menyediakan cap jari.
+Add this phone to your shared staff account. Up to five devices can be registered.	将此手机添加到共用员工账号，最多可绑定五部设备。	Tambah telefon ini ke akaun kakitangan bersama. Maksimum lima peranti boleh didaftarkan.
+Staff name	员工姓名	Nama kakitangan
+Add device	添加设备	Tambah peranti
+Registered devices	已绑定设备	Peranti berdaftar
+Each staff member adds their own phone here using the same email account.	每位员工使用同一个邮箱账号，在自己的手机上添加设备。	Setiap kakitangan menambah telefon sendiri di sini menggunakan akaun e-mel yang sama.
+Use a fingerprint already enrolled in this phone's system settings. Sign out keeps this device registered.	使用此手机系统设置中已录入的指纹。登出后仍保留设备绑定。	Gunakan cap jari yang sudah didaftarkan dalam tetapan sistem telefon ini. Log keluar mengekalkan pendaftaran peranti.
+This device	此设备	Peranti ini
+Remove device	移除设备	Buang peranti
+Refresh devices	刷新设备列表	Segar semula peranti
+Add this device to enable fingerprint sign-in.	添加此设备后即可使用指纹登录。	Tambah peranti ini untuk mengaktifkan log masuk cap jari.
+This device is registered	此设备已绑定	Peranti ini sudah didaftarkan
+Five devices are already registered. Remove a device before adding another.	已绑定五部设备，请先移除一部再添加新设备。	Lima peranti sudah didaftarkan. Buang satu peranti sebelum menambah yang baharu.
+You can use fingerprint immediately after signing out. Remove a device to cancel its fingerprint access.	登出后可以立即使用指纹重新登录。移除设备才会取消其指纹登录权限。	Anda boleh menggunakan cap jari sejurus selepas log keluar. Buang peranti untuk membatalkan akses cap jarinya.
+Remove device?	移除此设备？	Buang peranti?
+Fingerprint sign-in will stop on this device. It can be added again after signing in with email and password.	移除后，此设备将无法使用指纹登录。使用邮箱和密码登录后可重新添加。	Log masuk cap jari pada peranti ini akan dihentikan. Peranti boleh ditambah semula selepas log masuk dengan e-mel dan kata laluan.
+Enter a staff name between 2 and 60 characters.	请输入 2 至 60 个字符的员工姓名。	Masukkan nama kakitangan antara 2 hingga 60 aksara.
+Unable to load registered devices.	无法加载已绑定设备。	Tidak dapat memuatkan peranti berdaftar.
+Device registration is unavailable. Sign in with email and password to add this phone again.	设备绑定已失效，请使用邮箱和密码登录后重新添加此手机。	Pendaftaran peranti tidak tersedia. Log masuk dengan e-mel dan kata laluan untuk menambah telefon ini semula.
+Too many sign-in attempts. Please wait two minutes.	登录尝试过多，请等待两分钟。	Terlalu banyak percubaan log masuk. Sila tunggu dua minit.
+Device registration or fingerprint request is unavailable. Sign in with your password to check this phone.	设备绑定或指纹请求已失效，请使用密码登录并检查此设备。	Pendaftaran peranti atau permintaan cap jari tidak tersedia. Log masuk dengan kata laluan untuk menyemak telefon ini.
+Fingerprint request expired. Please try again.	指纹请求已过期，请重试。	Permintaan cap jari sudah tamat tempoh. Sila cuba lagi.
+Fingerprint verification failed.	指纹验证失败。	Pengesahan cap jari gagal.
+Unable to verify this device. Please try again.	无法验证此设备，请重试。	Tidak dapat mengesahkan peranti ini. Sila cuba lagi.
+Virtual CCTV	虚拟监控	CCTV maya
+Wall-mounted PTZ · Returns to patrol after 15 seconds	壁挂云台摄像头 · 15 秒后恢复巡航	Kamera PTZ di dinding · Rondaan disambung selepas 15 saat
+Camera direction sync unavailable	摄像头转向同步暂时不可用	Penyegerakan arah kamera tidak tersedia
+■ CCTV wall cameras	■ 壁挂监控摄像头	■ Kamera CCTV di dinding
+Watch visitors move through the 3D tour and control virtual cameras.	查看访客在 3D 店内的移动，并控制虚拟镜头。	Lihat pergerakan pelawat dalam lawatan 3D dan kawal kamera maya.
+Live activity in the 3D tour	3D 导览实时动态	Aktiviti langsung dalam lawatan 3D
+Connected	已连接	Disambungkan
+Connecting…	连接中…	Sedang menyambung…
+Entrance camera	入口镜头	Kamera pintu masuk
+PC arena camera	电竞区镜头	Kamera arena PC
+Billiards camera	桌球区镜头	Kamera biliard
+Lounge camera	休闲区镜头	Kamera ruang santai
+Circuit camera	赛道镜头	Kamera litar
+visitors in this area	位访客在此区域	pelawat di kawasan ini
+No visitors in this area	此区域暂无访客	Tiada pelawat di kawasan ini
+Camera controls	镜头控制	Kawalan kamera
+Pan left	向左转	Pusing kiri
+Pan right	向右转	Pusing kanan
+Tilt up	向上转	Dongak atas
+Tilt down	向下转	Tunduk bawah
+Zoom	缩放	Zum
+Reset view	重置视角	Tetapkan semula paparan
+Drag the picture to turn the virtual camera.	拖动画面可以转动虚拟镜头。	Seret gambar untuk memusing kamera maya.
+Visitors exploring now	正在导览的访客	Pelawat yang sedang meneroka
+No one is exploring the 3D tour right now.	目前没有访客在进行 3D 导览。	Tiada pelawat sedang meneroka lawatan 3D sekarang.
+Visitor	访客	Pelawat
+Follow visitor	跟随访客	Ikuti pelawat
+Stop following	停止跟随	Berhenti mengikuti
+Virtual visitors only. This does not use phone cameras or real-world location.	仅显示虚拟访客，不使用手机摄像头或现实定位。	Hanya pelawat maya. Kamera telefon dan lokasi dunia sebenar tidak digunakan.
+Virtual CCTV setup is pending. Run the provided SQL in Supabase.	虚拟监控尚未配置，请在 Supabase 运行提供的 SQL。	Persediaan CCTV maya belum selesai. Jalankan SQL yang disediakan dalam Supabase.
+Virtual tour connection lost. Reconnecting…	虚拟导览连接已断开，正在重连…	Sambungan lawatan maya terputus. Sedang menyambung semula…
+Retry connection	重试连接	Cuba sambung semula
+Connecting virtual visit…	正在连接虚拟导览…	Sedang menyambung lawatan maya…
+Virtual visit visible to staff	员工可查看本次虚拟导览	Kakitangan boleh melihat lawatan maya ini
+Virtual visit sync unavailable	虚拟导览同步暂时不可用	Penyegerakan lawatan maya tidak tersedia
+Your order appears in Orders after payment succeeds.	付款成功后，订单才会显示在订单列表。	Pesanan hanya muncul dalam senarai pesanan selepas pembayaran berjaya.
+Order cancelled. Place a new order when you're ready.	订单已取消，需要时请重新下单。	Pesanan dibatalkan. Buat pesanan baharu apabila anda bersedia.
+Unable to confirm cancellation. Check your connection and try leaving again.	暂时无法确认取消结果，请检查网络后再次尝试返回。	Pembatalan tidak dapat disahkan. Semak sambungan dan cuba kembali sekali lagi.
+Checkout is unavailable. Refresh and try again.	暂时无法结账，请刷新后重试。	Daftar keluar tidak tersedia. Muat semula dan cuba lagi.

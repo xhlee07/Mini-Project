@@ -25,6 +25,11 @@ class TourLook(yaw: Float = 0f, pitch: Float = 0f) {
         targetPitch = (targetPitch + pitch).coerceIn(-1.1f, 1.1f)
     }
 
+    fun aim(yaw: Float, pitch: Float) {
+        targetYaw = this.yaw + VirtualCctv.normalizedYaw(yaw - this.yaw)
+        targetPitch = pitch
+    }
+
     fun step(seconds: Float) {
         val blend = 1f - exp(-24f * seconds.coerceIn(0f, 0.1f))
         yaw += (targetYaw - yaw) * blend

@@ -19,6 +19,14 @@ import org.junit.Test
 
 class FixtureGateway(private val fixture: JSONObject, override var signedIn: Boolean) :
     ClubGateway {
+    // Existing UI fixtures represent a staff member who has just verified their password.
+    init {
+        if (BuildConfig.STAFF_APP && signedIn) StaffSession(
+            InstrumentationRegistry.getInstrumentation().targetContext
+        ).verified(fixture.getJSONObject("profile").text("id"))
+    }
+    override val accountId get() = fixture.optJSONObject("profile")?.text("id").orEmpty()
+    override val accountEmail get() = fixture.optJSONObject("profile")?.text("email").orEmpty()
     @Volatile var lastBooking: JSONObject? = null
     @Volatile var lastFeedback: JSONObject? = null
     @Volatile var failFeedbackOnce = false
@@ -30,6 +38,35 @@ class FixtureGateway(private val fixture: JSONObject, override var signedIn: Boo
 
     override suspend fun rpc(name: String, body: JSONObject, authenticated: Boolean): JSONObject {
         rpcRequests.add(name)
+        if (name == "ctfly_staff_history" || name == "ctfly_staff_transactions") {
+            val module =
+                if (name == "ctfly_staff_transactions") "Transactions" else body.text("p_module")
+            val source =
+                if (module == "Feedback") fixture.rows("feedback")
+                else fixture.rows("test_payments")
+            val filtered =
+                source
+                    .filter {
+                        (body.text("p_status", body.text("p_category", "All")) == "All" ||
+                            it.text("status") == body.text("p_status", body.text("p_category"))) &&
+                            (body.text("p_kind", "All") == "All" ||
+                                it.text("kind") == body.text("p_kind")) &&
+                            onStaffDay(it.text("created_at"), body.text("p_day"))
+                    }
+                    .map { row ->
+                        JSONObject(row.toString())
+                            .put("history_key", row.text("id"))
+                            .put("feedback_category", row.text("category"))
+                            .put("category", module)
+                            .put(
+                                "title",
+                                if (module == "Transactions") row.text("kind")
+                                else row.text("title"),
+                            )
+                            .put("payment", row)
+                    }
+            return obj("items" to org.json.JSONArray(filtered), "has_more" to false)
+        }
         if (name == "ctfly_action" && body.text("p_action") == "feedback") {
             lastFeedback = JSONObject(body.getJSONObject("p_data").toString())
             val request = body.text("p_request")
@@ -248,6 +285,8 @@ class AdaptiveStateTest {
                 }
         }
         val id = row!!.text("id")
+        compose.waitUntil(5000) { latestGateway!!.rpcRequests.contains("ctfly_staff_history") }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(row!!.text("body")))
         compose.onNodeWithText(row!!.text("body")).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("reviewFeedback-$id").performScrollTo().performClick()
         compose.waitUntil(5000) {
@@ -416,7 +455,7 @@ class AdaptiveStateTest {
         compose.waitUntil(6000) { surface().tour.race?.countdown == 0f }
         val mapBounds =
             compose
-                .onNodeWithContentDescription("Venue floor map")
+                .onNodeWithContentDescription("Venue floor map", useUnmergedTree = true)
                 .fetchSemanticsNode()
                 .boundsInRoot
         val gasBounds = compose.onNodeWithTag("kartGas").fetchSemanticsNode().boundsInRoot
@@ -982,14 +1021,14 @@ class AdaptiveStateTest {
         apart("kartPedals", "tourJoystick")
         val map =
             compose
-                .onNodeWithContentDescription("Venue floor map")
+                .onNodeWithContentDescription("Venue floor map", useUnmergedTree = true)
                 .fetchSemanticsNode()
                 .boundsInRoot
         assertFalse(map.overlaps(bounds("kartGas")))
         compose.onNodeWithContentDescription("Toggle floor map").performClick()
-        compose.onNodeWithContentDescription("Venue floor map").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Venue floor map", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Toggle floor map").performClick()
-        compose.onNodeWithContentDescription("Venue floor map").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Venue floor map", useUnmergedTree = true).assertIsDisplayed()
         assertTrue(bounds("kartRestart").bottom < bounds("kartGas").top)
         assertTrue(bounds("kartExit").bottom < bounds("kartGas").top)
         assertTrue(
@@ -1236,13 +1275,12 @@ class AdaptiveStateTest {
         compose.onNodeWithContentDescription("Toggle floor map").performClick()
         val mapBounds =
             compose
-                .onNodeWithContentDescription("Venue floor map")
+                .onNodeWithContentDescription("Venue floor map", useUnmergedTree = true)
                 .fetchSemanticsNode()
                 .boundsInRoot
-        val actionBounds =
-            compose.onNodeWithTag("tourVenueActions").fetchSemanticsNode().boundsInRoot
-        assertFalse("Tablet map must not cover venue actions", mapBounds.overlaps(actionBounds))
+        assertTrue("Tablet map opens at a readable screen size", mapBounds.width > 1000f)
         capture("tablet-110-tour-controls")
+        compose.onNodeWithContentDescription("Close floor map").performClick()
         compose.onNodeWithContentDescription("Expand 3D view").performClick()
         compose.onNodeWithContentDescription("Tour picture quality").performClick()
         compose.onNodeWithTag("tourQuality-BALANCED").performScrollTo().performClick()

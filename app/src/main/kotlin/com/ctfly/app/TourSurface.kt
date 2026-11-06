@@ -4,10 +4,12 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.HandlerThread
+import android.view.Choreographer
 import android.view.Surface
 import android.view.TextureView
 import javax.microedition.khronos.egl.*
 import javax.microedition.khronos.opengles.GL10
+import kotlin.math.roundToInt
 
 /** Keeps GL content in the normal view hierarchy, including EMUI clipping and rotation. */
 @android.annotation.SuppressLint("ViewConstructor")
@@ -23,6 +25,7 @@ class TourSurface(
     initialDoors: Int = 0,
     onDoors: (Int) -> Unit = {},
     initialBest: Float = 0f,
+    surveillance: Boolean = false,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     @Volatile private var disposed = false
     @Volatile private var paused = true
@@ -38,6 +41,12 @@ class TourSurface(
 
     private val renderThread = HandlerThread("CTFLY-Tour").apply { start() }
     private val handler = Handler(renderThread.looper)
+    private var choreographer: Choreographer? = null
+    private var lastFrameTime = 0L
+    @Volatile private var resolutionScale = 1f
+    private var frameCostMillis = 16f
+    private var budgetCheckedAt = 0L
+    private var budgetFrames = 0
     private val egl = EGLContext.getEGL() as EGL10
     private var display = EGL10.EGL_NO_DISPLAY
     private var glContext = EGL10.EGL_NO_CONTEXT
@@ -63,6 +72,7 @@ class TourSurface(
             initialDoors,
             { d -> post { if (!disposed) onDoors(d) } },
             initialBest,
+            surveillance,
         )
 
     init {
@@ -72,7 +82,7 @@ class TourSurface(
     }
 
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-        requestedSize = quality.size(width, height)
+        requestedSize = targetSize(width, height)
         handler.post {
             if (disposed) return@post
             try {
@@ -80,7 +90,10 @@ class TourSurface(
                 texture = surface
                 display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY)
                 check(display != EGL10.EGL_NO_DISPLAY && egl.eglInitialize(display, IntArray(2)))
-                for (samples in listOf(4, 0)) for (depth in listOf(24, 16)) {
+                // FXAA already filters edges. Smooth mode avoids paying for a second MSAA pass.
+                for (samples in
+                    if (quality == TourQuality.SMOOTH) listOf(0) else listOf(4, 0)) for (depth in
+                    listOf(24, 16)) {
                     if (config == null) {
                         val configs = arrayOfNulls<EGLConfig>(1)
                         val count = IntArray(1)
@@ -145,7 +158,7 @@ class TourSurface(
     }
 
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-        requestedSize = quality.size(width, height)
+        requestedSize = targetSize(width, height)
         handler.post {
             if (!disposed && texture === surface && window != EGL10.EGL_NO_SURFACE) {
                 try {
@@ -202,10 +215,16 @@ class TourSurface(
     }
 
     private val drawFrame =
-        object : Runnable {
-            override fun run() {
+        object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
                 if (disposed || paused || window == EGL10.EGL_NO_SURFACE) return
+                if (lastFrameTime != 0L && frameTimeNanos - lastFrameTime < 15_000_000L) {
+                    choreographer?.postFrameCallback(this)
+                    return
+                }
+                lastFrameTime = frameTimeNanos
                 try {
+                    val started = System.nanoTime()
                     if (renderBufferSize != requestedSize) {
                         resizeWindow()
                         tour.onSurfaceChanged(gl, renderBufferSize.first, renderBufferSize.second)
@@ -223,7 +242,25 @@ class TourSurface(
                     check(egl.eglSwapBuffers(display, window)) {
                         "Graphics frame could not be presented"
                     }
-                    handler.postDelayed(this, 1)
+                    val cost = ((System.nanoTime() - started) / 1e6f).coerceAtMost(100f)
+                    frameCostMillis += (cost - frameCostMillis) * .05f
+                    budgetFrames++
+                    if (budgetFrames >= 60 && frameTimeNanos - budgetCheckedAt > 3_000_000_000L) {
+                        val next =
+                            when {
+                                frameCostMillis > 23f ->
+                                    (resolutionScale * .85f).coerceAtLeast(.55f)
+                                frameCostMillis < 13f -> (resolutionScale + .05f).coerceAtMost(1f)
+                                else -> resolutionScale
+                            }
+                        if (next != resolutionScale) {
+                            resolutionScale = next
+                            requestedSize = targetSize(width, height)
+                        }
+                        budgetCheckedAt = frameTimeNanos
+                        budgetFrames = 0
+                    }
+                    choreographer?.postFrameCallback(this)
                 } catch (e: Exception) {
                     fail(e)
                 }
@@ -231,8 +268,11 @@ class TourSurface(
         }
 
     private fun scheduleFrame() {
-        handler.removeCallbacks(drawFrame)
-        if (!paused && !disposed && window != EGL10.EGL_NO_SURFACE) handler.post(drawFrame)
+        val clock = choreographer ?: Choreographer.getInstance().also { choreographer = it }
+        clock.removeFrameCallback(drawFrame)
+        lastFrameTime = 0L
+        if (!paused && !disposed && window != EGL10.EGL_NO_SURFACE)
+            clock.postFrameCallback(drawFrame)
     }
 
     fun queueEvent(action: () -> Unit) {
@@ -258,12 +298,19 @@ class TourSurface(
 
     fun setQuality(value: TourQuality) {
         quality = value
-        requestedSize = quality.size(width, height)
+        resolutionScale = 1f
+        requestedSize = targetSize(width, height)
         android.util.Log.i(
             "CTFLYTour",
             "Quality $value: target=$requestedSize buffer=$renderBufferSize paused=$paused disposed=$disposed",
         )
         handler.post { scheduleFrame() }
+    }
+
+    private fun targetSize(width: Int, height: Int): Pair<Int, Int> {
+        val (w, h) = quality.size(width, height)
+        return (w * resolutionScale).roundToInt().coerceAtLeast(1) to
+            (h * resolutionScale).roundToInt().coerceAtLeast(1)
     }
 
     fun onResume() {
@@ -275,7 +322,7 @@ class TourSurface(
     fun onPause() {
         paused = true
         stopInput()
-        handler.removeCallbacks(drawFrame)
+        handler.post { choreographer?.removeFrameCallback(drawFrame) }
     }
 
     fun stopInput() {
@@ -303,12 +350,12 @@ class TourSurface(
     private fun fail(e: Exception) {
         android.util.Log.e("CTFLYTour", "Texture display failed", e)
         if (!disposed) post { if (!disposed) onStatus("3D display failed. Return and try again.") }
-        handler.removeCallbacks(drawFrame)
+        choreographer?.removeFrameCallback(drawFrame)
         releaseEgl()
     }
 
     private fun releaseEgl() {
-        handler.removeCallbacks(drawFrame)
+        choreographer?.removeFrameCallback(drawFrame)
         if (display != EGL10.EGL_NO_DISPLAY) {
             egl.eglMakeCurrent(
                 display,

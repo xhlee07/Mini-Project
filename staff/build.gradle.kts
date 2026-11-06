@@ -10,8 +10,9 @@ android {
         applicationId = "com.ctfly.staff"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 16
+        versionName = "1.15"
+        buildConfigField("boolean", "PUSH_CONFIGURED", "false")
         manifestPlaceholders["launcherIcon"] = "@drawable/ic_staff_launcher"
         resValue("string", "app_name", "Staff CTFLY")
         buildConfigField("String", "PAYMENT_MODE", "\"simulation\"")
@@ -27,6 +28,7 @@ android {
             java.setSrcDirs(listOf("../app/src/main/kotlin"))
             res.setSrcDirs(listOf("../app/src/main/res"))
             assets.srcDir("../app/src/main/assets-ui")
+            assets.srcDir("../app/src/main/assets")
         }
         getByName("test").java.setSrcDirs(listOf("../app/src/test"))
         getByName("androidTest") {
@@ -45,6 +47,8 @@ android {
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment:1.8.5")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -53,6 +57,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+    implementation("com.google.firebase:firebase-messaging:25.1.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")

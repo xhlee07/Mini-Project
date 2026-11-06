@@ -226,17 +226,11 @@ fun AppDialogs(vm: AppViewModel) {
                 if (cart.isEmpty())
                     EmptyState("Your bag is empty", "Add something tasty from Café.")
                 else {
-                    val options =
-                        listOf("" to "Counter pickup") +
-                            vm.rows("bookings")
-                                .filter { it.text("status") == "Active" }
-                                .map { b ->
-                                    b.text("id") to
-                                        (vm.rows("resources")
-                                            .find { it.text("id") == b.text("resource_id") }
-                                            ?.text("name") ?: "My active space")
-                                }
-                    Select("Delivery", vm.field("delivery"), options, { vm.set("delivery", it) })
+                    AppText(
+                        "Counter pickup · Collect with your order QR when ready",
+                        color = Aqua,
+                        fontSize = 13.sp,
+                    )
                     AppText("Total ${money(total)}", fontSize = 25.sp, fontWeight = FontWeight.Bold)
                     AppText(
                         "Complete test checkout within 10 minutes. Unpaid orders will not be prepared.",
@@ -248,7 +242,7 @@ fun AppDialogs(vm: AppViewModel) {
                         enabled = !vm.busy,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        AppText("Place order")
+                        AppText("Continue to payment")
                     }
                 }
             }
@@ -283,6 +277,8 @@ fun AppDialogs(vm: AppViewModel) {
                     AppText("Register team")
                 }
             }
+        "pickupQr" -> DialogFrame("Collect your order", vm) { PickupQrContent(vm) }
+        "pickupScan" -> DialogFrame("Verify café pickup", vm) { StaffPickupContent(vm) }
         "qr" ->
             DialogFrame("Your entry pass", vm) {
                 val b = vm.rows("bookings").find { it.text("id") == vm.field("selectedBooking") }
@@ -326,23 +322,19 @@ fun AppDialogs(vm: AppViewModel) {
                     )
             }
         "scan" ->
-            DialogFrame("Check in a player", vm) {
-                Input("Entry code / scanned QR", vm.field("scanToken"), { vm.set("scanToken", it) })
+            DialogFrame("Verify QR code", vm) {
+                Input("Entry or pickup code", vm.field("scanToken"), { vm.set("scanToken", it) })
                 AppText(
-                    "Payment, booking time and prior use are verified by the server.",
+                    "Entry passes check booking time and payment. Pickup codes check payment, readiness and prior collection.",
                     color = Muted,
                     fontSize = 12.sp,
                 )
-                Button(
-                    onClick = {
-                        vm.action("check_in", obj("token" to vm.field("scanToken"))) {
-                            vm.set("dialog", "")
-                            vm.set("scanToken", "")
-                        }
-                    },
-                    enabled = !vm.busy,
-                ) {
-                    AppText("Verify & check in")
+                Button(onClick = { vm.confirmStaffCode() }, enabled = !vm.busy) {
+                    AppText(
+                        if (staffQrKind(vm.field("scanToken")) == StaffQrKind.ENTRY)
+                            "Verify & check in"
+                        else "Verify code"
+                    )
                 }
             }
         "profile" ->

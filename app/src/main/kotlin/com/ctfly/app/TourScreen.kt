@@ -3,6 +3,7 @@ package com.ctfly.app
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +28,7 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,6 +104,7 @@ fun TourScreen(vm: AppViewModel) {
     var pose by remember { mutableStateOf(restoredPose(vm.field("tourPose"))) }
     var status by remember { mutableStateOf("loading") }
     var map by rememberSaveable { mutableStateOf(vm.field("tourRace").isNotBlank()) }
+    var expandedMap by rememberSaveable { mutableStateOf(false) }
     var help by rememberSaveable { mutableStateOf(false) }
     var lift by rememberSaveable { mutableStateOf(false) }
     var graphics by rememberSaveable { mutableStateOf(false) }
@@ -150,11 +153,13 @@ fun TourScreen(vm: AppViewModel) {
                     ?: racePrefs.getFloat("kart_best", 0f),
         )
     }
+    val visitSync = VirtualTourSync(vm, surface, status)
     SideEffect {
         surface.tour.sprint = sprint
         surface.tour.experiencePaused =
-            graphics || help || lift || destinations || restartConfirmation
-        if (graphics || help || lift || destinations || restartConfirmation) surface.stopInput()
+            graphics || help || lift || destinations || restartConfirmation || expandedMap
+        if (graphics || help || lift || destinations || restartConfirmation || expandedMap)
+            surface.stopInput()
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(surface, lifecycle) {
@@ -181,513 +186,564 @@ fun TourScreen(vm: AppViewModel) {
             surface.onPause()
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize().background(Ink).safeDrawingPadding()) {
-        val compactLandscape = maxWidth > maxHeight * 1.8f && maxHeight < 500.dp
-        val phoneLayout = maxHeight < 500.dp
-        val immersive = phoneLayout || (immersiveOverride ?: compactLandscape)
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Box(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(Ink).safeDrawingPadding()) {
+            val compactLandscape = maxWidth > maxHeight * 1.8f && maxHeight < 500.dp
+            val phoneLayout = maxHeight < 500.dp
+            val immersive = phoneLayout || (immersiveOverride ?: compactLandscape)
+            Column(
+                Modifier.fillMaxSize()
+                    .then(if (expandedMap) Modifier.clearAndSetSemantics {} else Modifier)
             ) {
-                IconButton(onClick = { vm.set("page", "Discover") }) {
-                    AppIcon(Icons.AutoMirrored.Outlined.ArrowBack, "Leave 3D tour")
-                }
-                Column(Modifier.weight(1f)) {
-                    AppText(
-                        "CTFLY / THE CAMPUS",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontSize = if (phoneLayout) 14.sp else TextUnit.Unspecified,
-                        lineHeight = if (phoneLayout) 20.sp else TextUnit.Unspecified,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    AppText(
-                        "${pose.area.floor} · ${pose.area.label} · ${if(race==null)"First-person tour" else "Kart time trial"}",
-                        color = Muted,
-                        fontSize = 11.sp,
-                        lineHeight = if (phoneLayout) 14.sp else TextUnit.Unspecified,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (phoneLayout && race != null)
-                    TourRaceActions(surface, { restartConfirmation = true })
-                IconButton(onClick = { map = !map }) {
-                    AppIcon(Icons.Outlined.Map, "Toggle floor map", tint = if (map) Lime else Muted)
-                }
-                IconButton(onClick = { graphics = true }) {
-                    AppIcon(Icons.Outlined.HighQuality, "Tour picture quality")
-                }
-                if (!phoneLayout || race == null)
-                    IconButton(
-                        onClick = {
-                            if (phoneLayout) destinations = true else immersiveOverride = !immersive
-                        }
-                    ) {
-                        AppIcon(
-                            if (phoneLayout) Icons.Outlined.Place
-                            else if (immersive) Icons.Outlined.FullscreenExit
-                            else Icons.Outlined.Fullscreen,
-                            if (phoneLayout || immersive) "Show tour destinations"
-                            else "Expand 3D view",
-                        )
-                    }
-                IconButton(onClick = { help = true }) {
-                    AppIcon(Icons.Outlined.HelpOutline, "Tour controls")
-                }
-            }
-            if (race != null && !phoneLayout)
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    AppText(
-                        "Brake + steer = drift",
-                        Modifier.weight(1f),
-                        fontSize = 11.sp,
-                        color = Muted,
-                    )
-                    TourRaceActions(surface, { restartConfirmation = true })
-                }
-            if (!immersive && race == null)
-                Row(
-                    Modifier.fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TourArea.entries.forEach { area ->
-                        FilterChip(
-                            selected = pose.area == area,
-                            onClick = {
-                                surface.stopInput()
-                                surface.queueEvent { surface.tour.go(TourPlan.entry(area)) }
-                            },
-                            enabled = status == "ready",
-                            label = { AppText("${area.floor} ${area.label}", fontSize = 12.sp) },
+                    IconButton(onClick = { vm.set("page", "Discover") }) {
+                        AppIcon(Icons.AutoMirrored.Outlined.ArrowBack, "Leave 3D tour")
+                    }
+                    Column(Modifier.weight(1f)) {
+                        AppText(
+                            "CTFLY / THE CAMPUS",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontSize = if (phoneLayout) 14.sp else TextUnit.Unspecified,
+                            lineHeight = if (phoneLayout) 20.sp else TextUnit.Unspecified,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (!phoneLayout)
+                            AppText(
+                                visitSync,
+                                color = Muted,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                maxLines = 1,
+                            )
+                        AppText(
+                            "${pose.area.floor} · ${pose.area.label} · ${if (phoneLayout) visitSync else if(race==null)"First-person tour" else "Kart time trial"}",
+                            color = Muted,
+                            fontSize = 11.sp,
+                            lineHeight = if (phoneLayout) 14.sp else TextUnit.Unspecified,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
-                }
-            if (!immersive && race == null)
-                Row(
-                    Modifier.fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TourPlan.stops
-                        .filter { it.pose.area == pose.area }
-                        .forEach { stop ->
-                            AssistChip(
-                                onClick = {
-                                    surface.stopInput()
-                                    surface.queueEvent { surface.tour.go(stop) }
-                                },
-                                label = { AppText(stop.name) },
-                                enabled = status == "ready",
+                    if (phoneLayout && race != null)
+                        TourRaceActions(surface, { restartConfirmation = true })
+                    IconButton(
+                        onClick = { if (race != null) map = !map else expandedMap = true },
+                        enabled = status == "ready",
+                    ) {
+                        AppIcon(
+                            Icons.Outlined.Map,
+                            "Toggle floor map",
+                            tint = if (map && race != null) Lime else Muted,
+                        )
+                    }
+                    IconButton(onClick = { graphics = true }) {
+                        AppIcon(Icons.Outlined.HighQuality, "Tour picture quality")
+                    }
+                    if (!phoneLayout || race == null)
+                        IconButton(
+                            onClick = {
+                                if (phoneLayout) destinations = true
+                                else immersiveOverride = !immersive
+                            }
+                        ) {
+                            AppIcon(
+                                if (phoneLayout) Icons.Outlined.Place
+                                else if (immersive) Icons.Outlined.FullscreenExit
+                                else Icons.Outlined.Fullscreen,
+                                if (phoneLayout || immersive) "Show tour destinations"
+                                else "Expand 3D view",
                             )
                         }
+                    IconButton(onClick = { help = true }) {
+                        AppIcon(Icons.Outlined.HelpOutline, "Tour controls")
+                    }
                 }
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val compactMap = maxWidth > maxHeight
-                val pedalHeight =
-                    if (phoneLayout) (maxHeight * 0.40f).coerceIn(80.dp, 92.dp) else 132.dp
-                val tightHud =
-                    phoneLayout && (maxHeight < 220.dp || LocalDensity.current.fontScale > 1.3f)
+                if (race != null && !phoneLayout)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppText(
+                            "Brake + steer = drift",
+                            Modifier.weight(1f),
+                            fontSize = 11.sp,
+                            color = Muted,
+                        )
+                        TourRaceActions(surface, { restartConfirmation = true })
+                    }
+                if (!immersive && race == null)
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TourArea.entries.forEach { area ->
+                            FilterChip(
+                                selected = pose.area == area,
+                                onClick = {
+                                    surface.stopInput()
+                                    surface.queueEvent { surface.tour.go(TourPlan.entry(area)) }
+                                },
+                                enabled = status == "ready",
+                                label = { AppText("${area.floor} ${area.label}", fontSize = 12.sp) },
+                            )
+                        }
+                    }
+                if (!immersive && race == null)
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TourPlan.stops
+                            .filter { it.pose.area == pose.area }
+                            .forEach { stop ->
+                                AssistChip(
+                                    onClick = {
+                                        surface.stopInput()
+                                        surface.queueEvent { surface.tour.go(stop) }
+                                    },
+                                    label = { AppText(stop.name) },
+                                    enabled = status == "ready",
+                                )
+                            }
+                    }
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val compactMap = maxWidth > maxHeight
+                    val pedalHeight =
+                        if (phoneLayout) (maxHeight * 0.40f).coerceIn(80.dp, 92.dp) else 132.dp
+                    val tightHud =
+                        phoneLayout && (maxHeight < 220.dp || LocalDensity.current.fontScale > 1.3f)
 
-                AndroidView(
-                    factory = { surface },
-                    modifier = Modifier.fillMaxSize().testTag("tour3d"),
-                )
-                // Fingers own their input regions; another thumb staying down cannot block a new
-                // swipe.
-                Box(
-                    Modifier.fillMaxSize().testTag("tourLook").pointerInput(surface, density) {
-                        awaitPointerEventScope {
-                            var active: PointerId? = null
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                if (active == null)
-                                    event.changes
-                                        .firstOrNull { it.changedToDown() }
-                                        ?.let {
-                                            active = it.id
-                                            it.consume()
-                                        }
-                                val finger = event.changes.firstOrNull { it.id == active }
-                                if (finger != null) {
-                                    if (!finger.pressed) active = null
-                                    else {
-                                        val delta = finger.positionChange()
-                                        if (delta != Offset.Zero) {
-                                            surface.addLook(
-                                                delta.x / density * 0.006f,
-                                                -delta.y / density * 0.006f,
-                                            )
-                                            finger.consume()
+                    AndroidView(
+                        factory = { surface },
+                        modifier = Modifier.fillMaxSize().testTag("tour3d"),
+                    )
+                    // Fingers own their input regions; another thumb staying down cannot block a
+                    // new
+                    // swipe.
+                    Box(
+                        Modifier.fillMaxSize().testTag("tourLook").pointerInput(surface, density) {
+                            awaitPointerEventScope {
+                                var active: PointerId? = null
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    if (active == null)
+                                        event.changes
+                                            .firstOrNull { it.changedToDown() }
+                                            ?.let {
+                                                active = it.id
+                                                it.consume()
+                                            }
+                                    val finger = event.changes.firstOrNull { it.id == active }
+                                    if (finger != null) {
+                                        if (!finger.pressed) active = null
+                                        else {
+                                            val delta = finger.positionChange()
+                                            if (delta != Offset.Zero) {
+                                                surface.addLook(
+                                                    delta.x / density * 0.006f,
+                                                    -delta.y / density * 0.006f,
+                                                )
+                                                finger.consume()
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                )
-                if (status == "ready") {
-                    val nearest =
-                        TourPlan.stops
-                            .filter { it.pose.area == pose.area }
-                            .minBy { (it.pose.x - pose.x).pow(2) + (it.pose.z - pose.z).pow(2) }
-                    val room =
-                        if (pose.area == TourArea.GAMING)
-                            PrivateRoomPlan.rooms.firstOrNull {
-                                kotlin.math.abs(pose.x - it.x) < 3.7f &&
-                                    kotlin.math.abs(pose.z - it.z) < 3.2f
-                            }
-                        else null
-                    val placeName =
-                        room?.name
-                            ?: when {
-                                pose.area == TourArea.LOUNGE && pose.x > 11.7f -> "VIP simulator"
-                                pose.area == TourArea.LOUNGE &&
-                                    pose.x in 3f..10f &&
-                                    pose.z in -10f..1f -> "Simulator lab"
-                                else -> nearest.name
-                            }
-                    Surface(
-                        Modifier.align(Alignment.TopStart)
-                            .padding(8.dp)
-                            .widthIn(max = if (phoneLayout) 208.dp else 240.dp)
-                            .testTag("tourHud"),
-                        color = Ink.copy(alpha = 0.82f),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Column(
-                            Modifier.padding(
-                                horizontal = if (phoneLayout) 8.dp else 12.dp,
-                                vertical = if (phoneLayout) 4.dp else 12.dp,
-                            )
+                    )
+                    if (status == "ready") {
+                        val nearest =
+                            TourPlan.stops
+                                .filter { it.pose.area == pose.area }
+                                .minBy { (it.pose.x - pose.x).pow(2) + (it.pose.z - pose.z).pow(2) }
+                        val room =
+                            if (pose.area == TourArea.GAMING)
+                                PrivateRoomPlan.rooms.firstOrNull {
+                                    kotlin.math.abs(pose.x - it.x) < 3.7f &&
+                                        kotlin.math.abs(pose.z - it.z) < 3.2f
+                                }
+                            else null
+                        val placeName =
+                            room?.name
+                                ?: when {
+                                    pose.area == TourArea.LOUNGE && pose.x > 11.7f ->
+                                        "VIP simulator"
+                                    pose.area == TourArea.LOUNGE &&
+                                        pose.x in 3f..10f &&
+                                        pose.z in -10f..1f -> "Simulator lab"
+                                    else -> nearest.name
+                                }
+                        Surface(
+                            Modifier.align(Alignment.TopStart)
+                                .padding(8.dp)
+                                .widthIn(max = if (phoneLayout) 208.dp else 240.dp)
+                                .testTag("tourHud"),
+                            color = Ink.copy(alpha = 0.82f),
+                            shape = RoundedCornerShape(12.dp),
                         ) {
-                            val kart = race
-                            if (kart == null) {
-                                AppText(
-                                    placeName,
-                                    color = Lime,
-                                    fontSize = 14.sp,
-                                    lineHeight = 18.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                            Column(
+                                Modifier.padding(
+                                    horizontal = if (phoneLayout) 8.dp else 12.dp,
+                                    vertical = if (phoneLayout) 4.dp else 12.dp,
                                 )
-                                AppText(
-                                    "Walk freely • Drag to look around",
-                                    fontSize = 10.sp,
-                                    lineHeight = 14.sp,
-                                    color = Muted,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            } else {
-                                AppText(
-                                    "${(kart.speed*3.6f).roundToInt()} km/h · Lap ${kart.laps+1}",
-                                    fontSize = 16.sp,
-                                    lineHeight = 20.sp,
-                                    maxLines = 1,
-                                )
-                                if (!tightHud)
+                            ) {
+                                val kart = race
+                                if (kart == null) {
                                     AppText(
-                                        "Time ${raceTime(kart.lapTime)} · Best ${if(kart.best==0f)"—" else raceTime(kart.best)}",
+                                        placeName,
+                                        color = Lime,
+                                        fontSize = 14.sp,
+                                        lineHeight = 18.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    AppText(
+                                        "Walk freely • Drag to look around",
                                         fontSize = 10.sp,
                                         lineHeight = 14.sp,
                                         color = Muted,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
-                                AppText(
-                                    if (kart.countdown > 0)
-                                        "Ready · ${ceil(kart.countdown).toInt()}"
-                                    else if (kart.drifting) "DRIFT"
-                                    else if (tightHud)
-                                        "Time ${raceTime(kart.lapTime)} · Best ${if(kart.best==0f)"—" else raceTime(kart.best)}"
-                                    else
-                                        "${KartTrack.length.roundToInt()} m circuit · ${kart.checkpoint-1}/8 gates",
-                                    color = Lime,
-                                    fontSize = 10.sp,
-                                    lineHeight = 14.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                } else {
+                                    AppText(
+                                        "${(kart.speed*3.6f).roundToInt()} km/h · Lap ${kart.laps+1}",
+                                        fontSize = 16.sp,
+                                        lineHeight = 20.sp,
+                                        maxLines = 1,
+                                    )
+                                    if (!tightHud)
+                                        AppText(
+                                            "Time ${raceTime(kart.lapTime)} · Best ${if(kart.best==0f)"—" else raceTime(kart.best)}",
+                                            fontSize = 10.sp,
+                                            lineHeight = 14.sp,
+                                            color = Muted,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    AppText(
+                                        if (kart.countdown > 0)
+                                            "Ready · ${ceil(kart.countdown).toInt()}"
+                                        else if (kart.drifting) "DRIFT"
+                                        else if (tightHud)
+                                            "Time ${raceTime(kart.lapTime)} · Best ${if(kart.best==0f)"—" else raceTime(kart.best)}"
+                                        else
+                                            "${KartTrack.length.roundToInt()} m circuit · ${kart.checkpoint-1}/8 gates",
+                                        color = Lime,
+                                        fontSize = 10.sp,
+                                        lineHeight = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (map)
-                        Canvas(
-                            Modifier.align(
-                                    if (phoneLayout) {
-                                        if (race != null) Alignment.TopEnd else Alignment.TopCenter
-                                    } else if (compactMap && race != null) Alignment.TopCenter
-                                    else Alignment.TopEnd
-                                )
-                                .offset(
-                                    x =
-                                        if (!phoneLayout && compactMap && race != null) (-46).dp
-                                        else 0.dp
-                                )
-                                .padding(
-                                    top =
+                        if (map && race != null)
+                            Canvas(
+                                Modifier.align(
                                         if (phoneLayout) {
-                                            if (race == null) 68.dp else 8.dp
-                                        } else if (race == null) 76.dp
-                                        else if (compactMap) 12.dp else 74.dp,
-                                    end = 12.dp,
-                                )
-                                .size(
-                                    if (phoneLayout) 76.dp else if (compactMap) 92.dp else 116.dp,
-                                    if (phoneLayout) 56.dp else if (compactMap) 76.dp else 154.dp,
-                                )
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Ink.copy(alpha = .9f))
-                                .semantics { contentDescription = "Venue floor map" }
-                        ) {
-                            val area = pose.area
-                            val sx = size.width / (area.halfWidth * 2 + 2)
-                            val sz = size.height / (area.halfDepth * 2 + 2)
-                            fun point(x: Float, z: Float) =
-                                Offset((x + area.halfWidth + 1) * sx, (z + area.halfDepth + 1) * sz)
-                            drawRect(
-                                Muted,
-                                point(-area.halfWidth, -area.halfDepth),
-                                Size(area.halfWidth * 2 * sx, area.halfDepth * 2 * sz),
-                                style = Stroke(2f),
-                            )
-                            if (area == TourArea.GAMING)
-                                PrivateRoomPlan.rooms.forEach { room ->
-                                    drawRect(
-                                        Violet.copy(alpha = .45f),
-                                        point(room.x - 3.5f, room.z - 2.8f),
-                                        Size(sx * 7f, sz * 5.6f),
-                                        style = Stroke(1.5f),
+                                            if (race != null) Alignment.TopEnd
+                                            else Alignment.TopCenter
+                                        } else if (compactMap && race != null) Alignment.TopCenter
+                                        else Alignment.TopEnd
                                     )
-                                }
-                            if (area == TourArea.BILLIARDS)
-                                for (x in listOf(-9f, -3f, 3f, 9f)) for (z in
-                                    listOf(-10f, -3f, 4f)) {
-                                    drawRect(
-                                        Aqua.copy(alpha = .6f),
-                                        point(x - 1f, z - 1.5f),
-                                        Size(sx * 2, sz * 3),
+                                    .offset(
+                                        x =
+                                            if (!phoneLayout && compactMap && race != null) (-46).dp
+                                            else 0.dp
                                     )
-                                }
-                            if (area == TourArea.OUTDOOR) {
-                                KartTrack.points.forEachIndexed { i, p ->
-                                    val next = KartTrack.points[(i + 1) % KartTrack.points.size]
-                                    drawLine(
-                                        Color.White.copy(alpha = .65f),
-                                        point(p.x, p.z),
-                                        point(next.x, next.z),
-                                        3f,
+                                    .padding(
+                                        top =
+                                            if (phoneLayout) {
+                                                if (race == null) 68.dp else 8.dp
+                                            } else if (race == null) 76.dp
+                                            else if (compactMap) 12.dp else 74.dp,
+                                        end = 12.dp,
                                     )
-                                }
-                                drawCircle(
-                                    Lime,
-                                    3f,
-                                    point(KartTrack.points[0].x, KartTrack.points[0].z),
+                                    .size(
+                                        if (phoneLayout) 76.dp
+                                        else if (compactMap) 92.dp else 116.dp,
+                                        if (phoneLayout) 56.dp
+                                        else if (compactMap) 76.dp else 154.dp,
+                                    )
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Ink.copy(alpha = .9f))
+                                    .clickable(onClickLabel = "Open large floor map") {
+                                        expandedMap = true
+                                    }
+                                    .semantics { contentDescription = "Venue floor map" }
+                            ) {
+                                val area = pose.area
+                                val sx = size.width / (area.halfWidth * 2 + 2)
+                                val sz = size.height / (area.halfDepth * 2 + 2)
+                                fun point(x: Float, z: Float) =
+                                    Offset(
+                                        (x + area.halfWidth + 1) * sx,
+                                        (z + area.halfDepth + 1) * sz,
+                                    )
+                                drawRect(
+                                    Muted,
+                                    point(-area.halfWidth, -area.halfDepth),
+                                    Size(area.halfWidth * 2 * sx, area.halfDepth * 2 * sz),
+                                    style = Stroke(2f),
                                 )
-                                race?.let { kart ->
-                                    val target = KartTrack.gate(kart.checkpoint)
+                                if (area == TourArea.GAMING)
+                                    PrivateRoomPlan.rooms.forEach { room ->
+                                        drawRect(
+                                            Violet.copy(alpha = .45f),
+                                            point(room.x - 3.5f, room.z - 2.8f),
+                                            Size(sx * 7f, sz * 5.6f),
+                                            style = Stroke(1.5f),
+                                        )
+                                    }
+                                if (area == TourArea.BILLIARDS)
+                                    for (x in listOf(-9f, -3f, 3f, 9f)) for (z in
+                                        listOf(-10f, -3f, 4f)) {
+                                        drawRect(
+                                            Aqua.copy(alpha = .6f),
+                                            point(x - 1f, z - 1.5f),
+                                            Size(sx * 2, sz * 3),
+                                        )
+                                    }
+                                if (area == TourArea.OUTDOOR) {
+                                    KartTrack.points.forEachIndexed { i, p ->
+                                        val next = KartTrack.points[(i + 1) % KartTrack.points.size]
+                                        drawLine(
+                                            Color.White.copy(alpha = .65f),
+                                            point(p.x, p.z),
+                                            point(next.x, next.z),
+                                            3f,
+                                        )
+                                    }
                                     drawCircle(
-                                        Aqua,
-                                        5f,
-                                        point(target.x, target.z),
-                                        style = Stroke(2f),
+                                        Lime,
+                                        3f,
+                                        point(KartTrack.points[0].x, KartTrack.points[0].z),
                                     )
+                                    race?.let { kart ->
+                                        val target = KartTrack.gate(kart.checkpoint)
+                                        drawCircle(
+                                            Aqua,
+                                            5f,
+                                            point(target.x, target.z),
+                                            style = Stroke(2f),
+                                        )
+                                    }
+                                }
+                                WashroomDoors.rooms
+                                    .first { it.area == area }
+                                    .let { room ->
+                                        drawRect(
+                                            Aqua.copy(alpha = .65f),
+                                            point(room.left, room.back),
+                                            Size(7f * sx, (room.front - room.back) * sz),
+                                            style = Stroke(1.5f),
+                                        )
+                                        for (i in 1..4) drawLine(
+                                            Aqua.copy(alpha = .5f),
+                                            point(room.left + i * 1.4f, room.back),
+                                            point(room.left + i * 1.4f, room.rowZ),
+                                            1f,
+                                        )
+                                    }
+                                for (stop in
+                                    TourPlan.stops.filter { it.pose.area == area }) drawCircle(
+                                    Muted,
+                                    3f,
+                                    point(stop.pose.x, stop.pose.z),
+                                )
+                                drawCircle(Lime, 5f, point(pose.x, pose.z))
+                                drawLine(
+                                    Lime,
+                                    point(pose.x, pose.z),
+                                    point(pose.x + sin(pose.yaw) * 2, pose.z - cos(pose.yaw) * 2),
+                                    3f,
+                                )
+                            }
+                        if (race == null)
+                            Canvas(Modifier.align(Alignment.Center).size(5.dp)) {
+                                drawCircle(Color.White.copy(alpha = .55f))
+                            }
+                        MoveJoystick(
+                            Modifier.align(Alignment.BottomStart)
+                                .padding(start = 12.dp, bottom = 10.dp),
+                            diameter =
+                                if (phoneLayout) (maxHeight - 100.dp).coerceIn(88.dp, 112.dp)
+                                else 144.dp,
+                        ) { x, y ->
+                            surface.tour.strafe = x
+                            surface.tour.forward = if (race == null) y else 0f
+                        }
+                        if (race != null) {
+                            Row(
+                                Modifier.align(Alignment.BottomEnd)
+                                    .padding(12.dp)
+                                    .testTag("kartPedals"),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                TourPedal(
+                                    "REVERSE",
+                                    "kartReverse",
+                                    Aqua,
+                                    if (phoneLayout) 56.dp else 76.dp,
+                                    if (phoneLayout) 72.dp else 116.dp,
+                                    true,
+                                ) {
+                                    surface.tour.reverse = if (it) 1f else 0f
+                                }
+                                TourPedal(
+                                    "BRAKE",
+                                    "kartBrake",
+                                    Color(0xFFEEB19C),
+                                    if (phoneLayout) 84.dp else 112.dp,
+                                    pedalHeight,
+                                ) {
+                                    surface.tour.brake = if (it) 1f else 0f
+                                }
+                                TourPedal(
+                                    "GAS",
+                                    "kartGas",
+                                    Lime,
+                                    if (phoneLayout) 84.dp else 112.dp,
+                                    pedalHeight,
+                                ) {
+                                    surface.tour.throttle = if (it) 1f else 0f
                                 }
                             }
-                            WashroomDoors.rooms
-                                .first { it.area == area }
-                                .let { room ->
-                                    drawRect(
-                                        Aqua.copy(alpha = .65f),
-                                        point(room.left, room.back),
-                                        Size(7f * sx, (room.front - room.back) * sz),
-                                        style = Stroke(1.5f),
-                                    )
-                                    for (i in 1..4) drawLine(
-                                        Aqua.copy(alpha = .5f),
-                                        point(room.left + i * 1.4f, room.back),
-                                        point(room.left + i * 1.4f, room.rowZ),
-                                        1f,
-                                    )
+                        } else {
+                            // Only movement controls live at thumb level; venue actions stay above.
+                            Row(
+                                Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                TourRunButton(sprint, if (phoneLayout) 64.dp else 72.dp) {
+                                    sprint = !sprint
                                 }
-                            for (stop in TourPlan.stops.filter { it.pose.area == area }) drawCircle(
-                                Muted,
-                                3f,
-                                point(stop.pose.x, stop.pose.z),
-                            )
-                            drawCircle(Lime, 5f, point(pose.x, pose.z))
-                            drawLine(
-                                Lime,
-                                point(pose.x, pose.z),
-                                point(pose.x + sin(pose.yaw) * 2, pose.z - cos(pose.yaw) * 2),
-                                3f,
-                            )
-                        }
-                    if (race == null)
-                        Canvas(Modifier.align(Alignment.Center).size(5.dp)) {
-                            drawCircle(Color.White.copy(alpha = .55f))
-                        }
-                    MoveJoystick(
-                        Modifier.align(Alignment.BottomStart)
-                            .padding(start = 12.dp, bottom = 10.dp),
-                        diameter =
-                            if (phoneLayout) (maxHeight - 100.dp).coerceIn(88.dp, 112.dp)
-                            else 144.dp,
-                    ) { x, y ->
-                        surface.tour.strafe = x
-                        surface.tour.forward = if (race == null) y else 0f
-                    }
-                    if (race != null) {
-                        Row(
-                            Modifier.align(Alignment.BottomEnd)
-                                .padding(12.dp)
-                                .testTag("kartPedals"),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            TourPedal(
-                                "REVERSE",
-                                "kartReverse",
-                                Aqua,
-                                if (phoneLayout) 56.dp else 76.dp,
-                                if (phoneLayout) 72.dp else 116.dp,
-                                true,
+                                TourJumpButton(if (phoneLayout) 84.dp else 96.dp) {
+                                    surface.queueEvent { surface.tour.jump.trigger() }
+                                }
+                            }
+                            Column(
+                                Modifier.align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .testTag("tourVenueActions"),
+                                horizontalAlignment = Alignment.End,
                             ) {
-                                surface.tour.reverse = if (it) 1f else 0f
-                            }
-                            TourPedal(
-                                "BRAKE",
-                                "kartBrake",
-                                Color(0xFFEEB19C),
-                                if (phoneLayout) 84.dp else 112.dp,
-                                pedalHeight,
-                            ) {
-                                surface.tour.brake = if (it) 1f else 0f
-                            }
-                            TourPedal(
-                                "GAS",
-                                "kartGas",
-                                Lime,
-                                if (phoneLayout) 84.dp else 112.dp,
-                                pedalHeight,
-                            ) {
-                                surface.tour.throttle = if (it) 1f else 0f
-                            }
-                        }
-                    } else {
-                        // Only movement controls live at thumb level; venue actions stay above.
-                        Row(
-                            Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            TourRunButton(sprint, if (phoneLayout) 64.dp else 72.dp) {
-                                sprint = !sprint
-                            }
-                            TourJumpButton(if (phoneLayout) 84.dp else 96.dp) {
-                                surface.queueEvent { surface.tour.jump.trigger() }
-                            }
-                        }
-                        Column(
-                            Modifier.align(Alignment.TopEnd)
-                                .padding(8.dp)
-                                .testTag("tourVenueActions"),
-                            horizontalAlignment = Alignment.End,
-                        ) {
-                            val door = WashroomDoors.nearest(pose)
-                            val connector = TourPlan.connector(pose.area)
-                            val nearLift = hypot(pose.x - connector.x, pose.z - connector.z) < 2.4f
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (door != null) {
-                                    val open = doors and (1 shl door) != 0
+                                val door = WashroomDoors.nearest(pose)
+                                val connector = TourPlan.connector(pose.area)
+                                val nearLift =
+                                    hypot(pose.x - connector.x, pose.z - connector.z) < 2.4f
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (door != null) {
+                                        val open = doors and (1 shl door) != 0
+                                        FilledTonalButton(
+                                            onClick = {
+                                                surface.queueEvent { surface.tour.toggleDoor(door) }
+                                            },
+                                            enabled = WashroomDoors.canToggle(door, pose),
+                                            colors =
+                                                ButtonDefaults.filledTonalButtonColors(
+                                                    disabledContainerColor = Color(0xFF283031),
+                                                    disabledContentColor = Color(0xFFB1BABA),
+                                                ),
+                                            modifier =
+                                                Modifier.heightIn(min = 48.dp)
+                                                    .testTag("cubicleDoor"),
+                                        ) {
+                                            AppText(
+                                                if (open) "Close ${WashroomDoors.doors[door].label}"
+                                                else "Open ${WashroomDoors.doors[door].label}",
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
+                                    if (
+                                        pose.area == TourArea.OUTDOOR &&
+                                            hypot(pose.x, pose.z - 101f) < 22f
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                surface.stopInput()
+                                                surface.queueEvent { surface.tour.startRace() }
+                                            },
+                                            modifier =
+                                                Modifier.heightIn(min = 48.dp).testTag("kartStart"),
+                                        ) {
+                                            AppText(
+                                                "Take a kart 🏁",
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
                                     FilledTonalButton(
                                         onClick = {
-                                            surface.queueEvent { surface.tour.toggleDoor(door) }
+                                            surface.stopInput()
+                                            lift = true
                                         },
-                                        enabled = WashroomDoors.canToggle(door, pose),
-                                        colors =
-                                            ButtonDefaults.filledTonalButtonColors(
-                                                disabledContainerColor = Color(0xFF283031),
-                                                disabledContentColor = Color(0xFFB1BABA),
-                                            ),
                                         modifier =
-                                            Modifier.heightIn(min = 48.dp).testTag("cubicleDoor"),
+                                            Modifier.heightIn(min = 48.dp).testTag("tourFloor"),
                                     ) {
+                                        AppIcon(Icons.Outlined.Elevator, null, Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
                                         AppText(
-                                            if (open) "Close ${WashroomDoors.doors[door].label}"
-                                            else "Open ${WashroomDoors.doors[door].label}",
+                                            if (pose.area == TourArea.OUTDOOR) "Ground exit"
+                                            else if (nearLift) "Take lift" else "Change floor",
                                             fontSize = 11.sp,
                                             maxLines = 1,
                                         )
                                     }
                                 }
-                                if (
-                                    pose.area == TourArea.OUTDOOR &&
-                                        hypot(pose.x, pose.z - 101f) < 22f
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            surface.stopInput()
-                                            surface.queueEvent { surface.tour.startRace() }
-                                        },
-                                        modifier =
-                                            Modifier.heightIn(min = 48.dp).testTag("kartStart"),
-                                    ) {
-                                        AppText("Take a kart 🏁", fontSize = 11.sp, maxLines = 1)
-                                    }
-                                }
-                                FilledTonalButton(
-                                    onClick = {
-                                        surface.stopInput()
-                                        lift = true
-                                    },
-                                    modifier = Modifier.heightIn(min = 48.dp).testTag("tourFloor"),
-                                ) {
-                                    AppIcon(Icons.Outlined.Elevator, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
+                                if (openDoorBlocked(door, pose))
                                     AppText(
-                                        if (pose.area == TourArea.OUTDOOR) "Ground exit"
-                                        else if (nearLift) "Take lift" else "Change floor",
-                                        fontSize = 11.sp,
-                                        maxLines = 1,
+                                        "Step clear of the door to use it",
+                                        Modifier.background(Ink.copy(alpha = 0.85f)).padding(8.dp),
+                                        fontSize = 10.sp,
                                     )
-                                }
                             }
-                            if (openDoorBlocked(door, pose))
-                                AppText(
-                                    "Step clear of the door to use it",
-                                    Modifier.background(Ink.copy(alpha = 0.85f)).padding(8.dp),
-                                    fontSize = 10.sp,
-                                )
                         }
-                    }
-                } else
-                    Surface(
-                        Modifier.align(Alignment.Center).padding(24.dp),
-                        color = Panel,
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Column(
-                            Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                    } else
+                        Surface(
+                            Modifier.align(Alignment.Center).padding(24.dp),
+                            color = Panel,
+                            shape = RoundedCornerShape(16.dp),
                         ) {
-                            if (status == "loading") CircularProgressIndicator()
-                            Spacer(Modifier.height(12.dp))
-                            AppText(if (status == "loading") "Opening the venue…" else status)
+                            Column(
+                                Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                if (status == "loading") CircularProgressIndicator()
+                                Spacer(Modifier.height(12.dp))
+                                AppText(if (status == "loading") "Opening the venue…" else status)
+                            }
                         }
-                    }
+                }
             }
         }
+        if (expandedMap)
+            TourFloorMap(
+                pose = pose,
+                racing = race != null,
+                onDismiss = { expandedMap = false },
+                onGo = { stop ->
+                    expandedMap = false
+                    surface.stopInput()
+                    surface.queueEvent { surface.tour.go(stop) }
+                },
+            )
     }
     if (destinations)
         AlertDialog(

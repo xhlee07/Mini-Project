@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,21 +49,23 @@ val CrewPages =
         Destination("My shifts", Icons.Outlined.Badge),
         Destination("Handover", Icons.Outlined.Forum),
         Destination("Equipment", Icons.Outlined.Build),
-        Destination("Events", Icons.Outlined.EmojiEvents),
+        Destination("Modules", Icons.Outlined.GridView),
     )
 
 @Composable
 fun CtflyApp(vm: AppViewModel) {
+    PickupPermissionPrompt(vm)
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm.message, vm.field("dialog"), vm.field("page")) {
-        if (vm.field("dialog").isNotBlank()) snackbar.currentSnackbarData?.dismiss()
+        snackbar.currentSnackbarData?.dismiss()
+        val text = vm.message
         if (
             vm.message.isNotEmpty() &&
                 vm.field("page") != "Checkout" &&
                 vm.field("dialog").isBlank()
         ) {
-            snackbar.showSnackbar(vm.message)
-            vm.dismissMessage()
+            snackbar.showSnackbar(text, duration = SnackbarDuration.Short)
+            if (vm.message == text) vm.dismissMessage()
         }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh(silent = true) }
@@ -74,7 +78,12 @@ fun CtflyApp(vm: AppViewModel) {
                 delay(1000)
                 vm.tick()
                 elapsed++
-                if (elapsed % 30 == 0 && vm.hasAccount && !vm.busy) {
+                val pickupPending =
+                    vm.rows("orders").any {
+                        it.optBoolean("paid") &&
+                            it.text("status") in listOf("Pending", "Preparing", "Ready")
+                    }
+                if (elapsed % (if (pickupPending) 5 else 30) == 0 && vm.hasAccount && !vm.busy) {
                     vm.refresh(silent = true)
                 }
             }
@@ -82,10 +91,11 @@ fun CtflyApp(vm: AppViewModel) {
     }
     val logged = vm.hasAccount && vm.role.isNotEmpty()
     val page = vm.field("page", if (vm.crew) "Operations" else "Discover").ifBlank { "Discover" }
-    LaunchedEffect(page) { snackbar.currentSnackbarData?.dismiss() }
-    BackHandler(logged) {
+    BackHandler(logged && !vm.staffLocked) {
         when {
             vm.field("dialog").isNotBlank() -> vm.set("dialog", "")
+            vm.crew && staffBackDestination(page) != null ->
+                vm.set("page", staffBackDestination(page)!!)
             page != (if (vm.crew) "Operations" else "Discover") ->
                 vm.set("page", if (vm.crew) "Operations" else "Discover")
             else -> vm.set("dialog", "logout")
@@ -93,7 +103,14 @@ fun CtflyApp(vm: AppViewModel) {
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(Ink)) {
         val wide = maxWidth >= 840.dp
-        if (page == "Settings") {
+        val compactLandscape = maxWidth >= 600.dp && maxHeight < 500.dp
+        val railNavigation = wide || compactLandscape
+        val narrowStaffHeader = vm.admin && maxWidth < 360.dp
+        if (vm.staffResuming) {
+            Box(Modifier.fillMaxSize().background(Ink))
+        } else if (vm.restoringAccount) {
+            AccountRestoringScreen(vm)
+        } else if (page == "Settings") {
             BackHandler { vm.set("page", vm.field("settingsReturn", "Discover")) }
             SettingsScreen(vm) { vm.set("page", vm.field("settingsReturn", "Discover")) }
             AppSnackbarHost(
@@ -116,19 +133,31 @@ fun CtflyApp(vm: AppViewModel) {
             }
         } else if (!BuildConfig.STAFF_APP && page == "Tour") {
             TourScreen(vm)
+        } else if (BuildConfig.STAFF_APP && vm.crew && page == "CCTV") {
+            VirtualCctvScreen(vm)
         } else if (page == "Checkout") {
-            CheckoutScreen(vm) { vm.set("page", vm.field("checkoutReturn", "Bookings")) }
+            CheckoutScreen(vm) { vm.leaveCheckout() }
         } else {
             val pages = if (vm.crew) CrewPages else CustomerPages
             Scaffold(
                 containerColor = Ink,
                 snackbarHost = { AppSnackbarHost(snackbar) },
                 bottomBar = {
-                    if (!wide)
+                    if (!railNavigation)
                         NavigationBar(containerColor = Panel) {
                             pages.forEach { d ->
                                 NavigationBarItem(
-                                    selected = page == d.label,
+                                    selected =
+                                        page == d.label ||
+                                            (vm.crew &&
+                                                d.label == "Modules" &&
+                                                page in
+                                                    listOf(
+                                                        "Customer history",
+                                                        "Transactions",
+                                                        "Feedback",
+                                                        "Events",
+                                                    )),
                                     onClick = { vm.set("page", d.label) },
                                     icon = { AppIcon(d.icon, d.label) },
                                     label = { AppText(d.label, fontSize = 10.sp) },
@@ -138,35 +167,65 @@ fun CtflyApp(vm: AppViewModel) {
                 },
             ) { insets ->
                 Row(Modifier.fillMaxSize().padding(insets)) {
-                    if (wide)
+                    if (railNavigation)
                         NavigationRail(
                             containerColor = Panel,
-                            modifier = Modifier.fillMaxHeight().width(96.dp),
-                            header = { Brand(Modifier.padding(vertical = 22.dp), compact = true) },
+                            windowInsets =
+                                if (compactLandscape) WindowInsets(0, 0, 0, 0)
+                                else NavigationRailDefaults.windowInsets,
+                            modifier =
+                                Modifier.fillMaxHeight()
+                                    .width(if (compactLandscape) 72.dp else 96.dp),
+                            header = {
+                                Brand(
+                                    Modifier.padding(
+                                        vertical = if (compactLandscape) 4.dp else 22.dp
+                                    ),
+                                    compact = true,
+                                )
+                            },
                         ) {
                             pages.forEach { d ->
                                 NavigationRailItem(
-                                    page == d.label,
+                                    page == d.label ||
+                                        (vm.crew &&
+                                            d.label == "Modules" &&
+                                            page in
+                                                listOf(
+                                                    "Customer history",
+                                                    "Transactions",
+                                                    "Feedback",
+                                                    "Events",
+                                                )),
                                     { vm.set("page", d.label) },
                                     icon = { AppIcon(d.icon, d.label) },
-                                    label = { AppText(d.label, fontSize = 10.sp) },
+                                    label =
+                                        if (compactLandscape) null
+                                        else ({ AppText(d.label, fontSize = 10.sp) }),
+                                    modifier =
+                                        if (compactLandscape) Modifier.height(48.dp) else Modifier,
                                 )
                             }
                             Spacer(Modifier.weight(1f))
-                            AppText(
-                                "MY · 18+",
-                                color = Muted,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(14.dp),
-                            )
+                            if (!compactLandscape)
+                                AppText(
+                                    "MY · 18+",
+                                    color = Muted,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(14.dp),
+                                )
                         }
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                            Modifier.fillMaxWidth()
+                                .padding(
+                                    horizontal = if (railNavigation) 20.dp else 10.dp,
+                                    vertical = if (compactLandscape) 4.dp else 12.dp,
+                                ),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (!wide) Brand(compact = true)
-                            else
+                            if (!railNavigation && !narrowStaffHeader) Brand(compact = true)
+                            else if (wide)
                                 AppText(
                                     if (vm.crew) "CREW WORKSPACE" else "GAMING • SOCIAL • CULTURE",
                                     color = Muted,
@@ -186,37 +245,7 @@ fun CtflyApp(vm: AppViewModel) {
                                 IconButton(onClick = { vm.set("page", "Bookings") }) {
                                     AppIcon(Icons.Outlined.ConfirmationNumber, "My bookings")
                                 }
-                            if (!vm.crew)
-                                BadgedBox(
-                                    badge = {
-                                        if (vm.cart().isNotEmpty())
-                                            Badge { AppText(vm.cart().values.sum().toString()) }
-                                    }
-                                ) {
-                                    IconButton(onClick = { vm.set("dialog", "cart") }) {
-                                        AppIcon(Icons.Outlined.ShoppingBag, "Shopping bag")
-                                    }
-                                }
-                            if (vm.crew) {
-                                var more by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { more = true }) {
-                                        AppIcon(Icons.Outlined.MoreVert, "More staff tools")
-                                    }
-                                    DropdownMenu(
-                                        expanded = more,
-                                        onDismissRequest = { more = false },
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { AppText("Transactions") },
-                                            onClick = {
-                                                more = false
-                                                vm.set("page", "Transactions")
-                                            },
-                                        )
-                                    }
-                                }
-                            }
+                            if (vm.crew) TransactionShortcut(vm)
                             if (vm.crew)
                                 IconButton(onClick = { vm.set("page", "Feedback") }) {
                                     AppIcon(Icons.Outlined.Feedback, tr("Customer feedback"))
@@ -243,6 +272,7 @@ fun CtflyApp(vm: AppViewModel) {
                                     fontSize = 12.sp,
                                 )
                             }
+                        ReadyPickupBanner(vm)
                         Row(Modifier.weight(1f)) {
                             Box(Modifier.weight(1f).fillMaxHeight()) {
                                 key(page) {
@@ -254,6 +284,8 @@ fun CtflyApp(vm: AppViewModel) {
                                                 "Equipment" -> EquipmentScreen(vm)
                                                 "Feedback" -> FeedbackInboxScreen(vm)
                                                 "Transactions" -> TransactionsScreen(vm)
+                                                "Customer history" -> StaffHistoryScreen(vm)
+                                                "Modules" -> StaffModulesScreen(vm)
                                                 "Events" -> StaffEventsScreen(vm)
                                                 "Manage" ->
                                                     if (vm.admin) ManagementScreen(vm)
@@ -316,8 +348,14 @@ fun CtflyApp(vm: AppViewModel) {
                 }
             }
         }
-        AppDialogs(vm)
-        if (vm.validationError.isNotBlank() && vm.field("dialog").isBlank())
+        if (!vm.staffResuming && !vm.restoringAccount) AppDialogs(vm)
+        if (
+            !vm.staffResuming &&
+                !vm.restoringAccount &&
+                vm.validationError.isNotBlank() &&
+                !vm.offerFingerprint &&
+                vm.field("dialog").isBlank()
+        )
             AlertDialog(
                 onDismissRequest = { vm.clearValidationError() },
                 title = { AppText("Please check your details") },
@@ -327,6 +365,7 @@ fun CtflyApp(vm: AppViewModel) {
                 },
             )
     }
+    StaffFingerprintOffer(vm)
 }
 
 private suspend fun Lifecycle.repeatOnLifecycleCompat(
@@ -460,6 +499,7 @@ fun AuthScreen(vm: AppViewModel, wide: Boolean) {
                         fontWeight = FontWeight.Bold,
                     )
             }
+            if (mode == "login" && portal == "staff") StaffFingerprintSignIn(vm)
             if (mode == "login" && portal == "customer")
                 OutlinedButton(
                     onClick = { vm.set("authMode", "register") },
@@ -614,280 +654,184 @@ fun PlayScreen(vm: AppViewModel) {
     val kind = vm.field("playKind", "PC")
     val zone = vm.field("zone", "All")
     val roomPlayers = vm.field("roomPlayers", "1").toIntOrNull()?.coerceIn(1, 4) ?: 1
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 20.dp),
+    val area = VenueDirectory.area(kind)
+    val count =
+        vm.rows("resources").count { it.text("kind") == kind && it.text("status") != "Retired" }
+    val resources =
+        vm.rows("resources")
+            .filter {
+                it.text("kind") == kind &&
+                    (kind !in listOf("PC", "Racing") || zone == "All" || it.text("zone") == zone) &&
+                    (kind != "VIPRoom" || it.optInt("capacity", 1) >= roomPlayers) &&
+                    it.text("status") != "Retired"
+            }
+            .sortedBy { if (kind == "VIPRoom") it.optInt("capacity", 1) else 0 }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(if (kind == "PC") 155.dp else 245.dp),
+        modifier = Modifier.fillMaxSize().testTag("play-list"),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val area = VenueDirectory.area(kind)
-        val count =
-            vm.rows("resources").count { it.text("kind") == kind && it.text("status") != "Retired" }
-        Box(Modifier.fillMaxWidth().height(126.dp)) {
-            Photo(
-                when (area) {
-                    TourArea.BILLIARDS -> "pool_club"
-                    TourArea.OUTDOOR -> "kart_circuit"
-                    TourArea.LOUNGE -> "neon_cafe"
-                    else -> "neon_arena"
-                },
-                Modifier.fillMaxSize(),
-                "${area.label} concept",
-            )
-            Box(
-                Modifier.fillMaxSize()
-                    .background(
-                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                            listOf(Ink.copy(alpha = .94f), Ink.copy(alpha = .3f))
-                        )
-                    )
-            )
+        item(key = "play-header", span = { GridItemSpan(maxLineSpan) }) {
             Column(
-                Modifier.padding(18.dp).align(Alignment.CenterStart),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                Modifier.fillMaxWidth().testTag("play-header"),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Eyebrow(
-                    "${area.floor} / ${area.label.uppercase()}",
-                    if (area == TourArea.OUTDOOR) Orange else Lime,
-                )
-                AppText(
-                    when (area) {
-                        TourArea.GAMING -> "Your next great game."
-                        TourArea.BILLIARDS -> "A whole floor for your crew."
-                        TourArea.LOUNGE -> "Find your kind of play."
-                        TourArea.OUTDOOR -> "Take it outside."
-                    },
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                AppText(
-                    "$count ${VenueDirectory.label(kind).lowercase()} facilities · Choose your time",
-                    color = Muted,
-                    fontSize = 12.sp,
-                )
-            }
-            IconButton(
-                onClick = {
-                    vm.set(
-                        "tourPose",
-                        (if (kind == "VIPRoom")
-                                PrivateRoomPlan.rooms
-                                    .first { it.x == 0f && it.capacity >= roomPlayers }
-                                    .insidePose
-                            else if (kind == "Racing")
-                                TourPlan.stops
-                                    .first {
-                                        it.name ==
-                                            if (zone == "VIP") "VIP simulator" else "Simulator lab"
-                                    }
-                                    .pose
-                            else TourPlan.entry(area).pose)
-                            .let { "${it.x},${it.z},${it.yaw},${it.pitch},${it.area.name}" },
-                    )
-                    vm.set("page", "Tour")
-                },
-                modifier = Modifier.align(Alignment.TopEnd),
-            ) {
-                AppIcon(Icons.Outlined.ViewInAr, "Preview ${area.label} in 3D", tint = Lime)
-            }
-        }
-        FilterRow(
-            VenueDirectory.kinds.map { VenueDirectory.label(it) },
-            VenueDirectory.label(kind),
-        ) { label ->
-            vm.set("playKind", VenueDirectory.kinds.first { VenueDirectory.label(it) == label })
-            vm.set("zone", "All")
-        }
-        if (kind in listOf("PC", "Racing"))
-            FilterRow(listOf("All", "Standard", "VIP"), zone) { vm.set("zone", it) }
-        if (kind == "VIPRoom")
-            FilterRow(
-                listOf("1 player", "2 players", "3 players", "4 players"),
-                if (roomPlayers == 1) "1 player" else "$roomPlayers players",
-            ) {
-                vm.set("roomPlayers", it.substringBefore(' '))
-                vm.set("bookGuests", it.substringBefore(' '))
-            }
-        AppText(
-            if (kind == "GoKart") "Kart sessions: 10, 15, 30 or 60 minutes · One driver per kart"
-            else if (kind == "VIPRoom")
-                "Choose your group · Price for the whole room · 3 guests use a 4-PC room"
-            else if (kind == "Racing") "Standard or private VIP cockpit · One driver per simulator"
-            else "Rates per hour · Availability confirmed when you reserve",
-            color = Muted,
-            fontSize = 11.sp,
-        )
-        val resources =
-            vm.rows("resources")
-                .filter {
-                    it.text("kind") == kind &&
-                        (kind !in listOf("PC", "Racing") ||
-                            zone == "All" ||
-                            it.text("zone") == zone) &&
-                        (kind != "VIPRoom" || it.optInt("capacity", 1) >= roomPlayers) &&
-                        it.text("status") != "Retired"
-                }
-                .sortedBy { if (kind == "VIPRoom") it.optInt("capacity", 1) else 0 }
-        LazyVerticalGrid(
-            GridCells.Adaptive(if (kind == "PC") 155.dp else 245.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            items(resources, key = { it.text("id") }) { r ->
-                SurfaceCard {
-                    if (kind in listOf("PC", "VIPRoom")) {
-                        AppIcon(
-                            if (kind == "VIPRoom") Icons.Outlined.MeetingRoom
-                            else Icons.Outlined.DesktopWindows,
-                            null,
-                            Modifier.size(44.dp),
-                            tint = if (r.text("zone") == "VIP") Violet else Lime,
-                        )
-                        Chip(r.text("zone"), if (r.text("zone") == "VIP") Violet else Lime)
-                    } else {
-                        ActivityArt(kind, Modifier.fillMaxWidth().height(120.dp))
-                        if (kind == "Racing")
-                            Chip(r.text("zone"), if (r.text("zone") == "VIP") Violet else Aqua)
-                    }
-                    AppText(r.text("name"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    AppText(
-                        "${area.floor} · ${area.label} · Up to ${r.optInt("capacity",1)} player${if(r.optInt("capacity",1)>1)"s" else ""}",
-                        color = Aqua,
-                        fontSize = 11.sp,
-                    )
-                    AppText(r.text("description"), color = Muted, fontSize = 12.sp)
-                    AppText(
-                        if (kind == "GoKart") "${money(bookingPrice(r.optInt("rate"),15))} / 15 min"
-                        else if (kind == "VIPRoom") "${money(r.optInt("rate"))} / room / hr"
-                        else "${money(r.optInt("rate"))} / hr",
-                        color = if (kind == "PC") Lime else Violet,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Button(
-                        onClick = {
-                            vm.resetBookingDraft(r.text("id"))
-                            vm.set(
-                                "bookGuests",
-                                if (kind == "VIPRoom") roomPlayers.toString() else "1",
-                            )
-                            vm.set("dialog", "book")
+                Box(Modifier.fillMaxWidth().height(126.dp)) {
+                    Photo(
+                        when (area) {
+                            TourArea.BILLIARDS -> "pool_club"
+                            TourArea.OUTDOOR -> "kart_circuit"
+                            TourArea.LOUNGE -> "neon_cafe"
+                            else -> "neon_arena"
                         },
-                        enabled = r.text("status") == "Available",
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        AppText(
-                            if (r.text("status") == "Available") "Reserve" else r.text("status")
-                        )
-                    }
-                }
-            }
-            if (resources.isEmpty())
-                item {
-                    EmptyState(
-                        "No spaces to show",
-                        if (vm.loading) "Loading your club…"
-                        else if (kind == "VIPRoom")
-                            "Private rooms need the 1.7 cloud inventory update. Then refresh Play."
-                        else "New spaces are coming. Try another activity or refresh.",
+                        Modifier.fillMaxSize(),
+                        "${area.label} concept",
                     )
-                }
-        }
-    }
-}
-
-@Composable
-fun CafeScreen(vm: AppViewModel) {
-    val query = vm.field("search")
-    val category = vm.field("category", "All")
-    val cats = listOf("All", "Favorites") + vm.rows("categories").map { it.text("name") }
-    val favorites = vm.rows("favorites").map { it.text("product_id") }.toSet()
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Eyebrow("THE PIT STOP", Orange)
-        AppText("Play hungry? Never.", style = MaterialTheme.typography.headlineMedium)
-        Input("Search drinks & bites", query, { vm.set("search", it) })
-        FilterRow(cats, category) { vm.set("category", it) }
-        val products =
-            vm.rows("products").filter { p ->
-                p.optBoolean("active", true) &&
-                    p.text("name").contains(query, true) &&
-                    (category == "All" ||
-                        (category == "Favorites" && p.text("id") in favorites) ||
-                        vm.rows("categories").any {
-                            it.text("id") == p.text("category_id") && it.text("name") == category
-                        })
-            }
-        LazyVerticalGrid(
-            GridCells.Adaptive(160.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            items(products, key = { it.text("id") }) { p ->
-                Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Panel),
-                ) {
-                    Box {
-                        Photo(
-                            p.text("image"),
-                            Modifier.fillMaxWidth().height(135.dp),
-                            p.text("name"),
-                        )
-                        IconButton(
-                            onClick = { vm.action("favorite", obj("id" to p.text("id"))) },
-                            modifier = Modifier.align(Alignment.TopEnd),
-                        ) {
-                            AppIcon(
-                                if (p.text("id") in favorites) Icons.Outlined.Favorite
-                                else Icons.Outlined.FavoriteBorder,
-                                "Favorite",
-                                tint = Lime,
-                            )
-                        }
-                    }
-                    Column(
-                        Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        AppText(p.text("name"), fontWeight = FontWeight.Bold, minLines = 2)
-                        AppText(
-                            money(p.optInt("price")),
-                            color = Orange,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        val qty = vm.cart()[p.text("id")] ?: 0
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            if (qty > 0) {
-                                IconButton(onClick = { vm.cartChange(p.text("id"), -1) }) {
-                                    AppIcon(Icons.Outlined.Remove, "Remove one")
-                                }
-                                AppText(qty.toString())
-                            } else
-                                AppText(
-                                    if (p.optInt("stock") == 0) "Sold out"
-                                    else "${p.optInt("stock")} available",
-                                    fontSize = 11.sp,
-                                    color = Muted,
-                                    modifier = Modifier.weight(1f),
+                    Box(
+                        Modifier.fillMaxSize()
+                            .background(
+                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                    listOf(Ink.copy(alpha = .94f), Ink.copy(alpha = .3f))
                                 )
-                            FilledIconButton(
-                                onClick = { vm.cartChange(p.text("id"), 1) },
-                                enabled = p.optInt("stock") > qty,
-                            ) {
-                                AppIcon(Icons.Outlined.Add, "Add ${p.text("name")}")
-                            }
-                        }
+                            )
+                    )
+                    Column(
+                        Modifier.padding(18.dp).align(Alignment.CenterStart),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Eyebrow(
+                            "${area.floor} / ${area.label.uppercase()}",
+                            if (area == TourArea.OUTDOOR) Orange else Lime,
+                        )
+                        AppText(
+                            when (area) {
+                                TourArea.GAMING -> "Your next great game."
+                                TourArea.BILLIARDS -> "A whole floor for your crew."
+                                TourArea.LOUNGE -> "Find your kind of play."
+                                TourArea.OUTDOOR -> "Take it outside."
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        AppText(
+                            "$count ${VenueDirectory.label(kind).lowercase()} facilities · Choose your time",
+                            color = Muted,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            vm.set(
+                                "tourPose",
+                                (if (kind == "VIPRoom")
+                                        PrivateRoomPlan.rooms
+                                            .first { it.x == 0f && it.capacity >= roomPlayers }
+                                            .insidePose
+                                    else if (kind == "Racing")
+                                        TourPlan.stops
+                                            .first {
+                                                it.name ==
+                                                    if (zone == "VIP") "VIP simulator"
+                                                    else "Simulator lab"
+                                            }
+                                            .pose
+                                    else TourPlan.entry(area).pose)
+                                    .let { "${it.x},${it.z},${it.yaw},${it.pitch},${it.area.name}" },
+                            )
+                            vm.set("page", "Tour")
+                        },
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    ) {
+                        AppIcon(Icons.Outlined.ViewInAr, "Preview ${area.label} in 3D", tint = Lime)
                     }
                 }
+                FilterRow(
+                    VenueDirectory.kinds.map { VenueDirectory.label(it) },
+                    VenueDirectory.label(kind),
+                ) { label ->
+                    vm.set(
+                        "playKind",
+                        VenueDirectory.kinds.first { VenueDirectory.label(it) == label },
+                    )
+                    vm.set("zone", "All")
+                }
+                if (kind in listOf("PC", "Racing"))
+                    FilterRow(listOf("All", "Standard", "VIP"), zone) { vm.set("zone", it) }
+                if (kind == "VIPRoom")
+                    FilterRow(
+                        listOf("1 player", "2 players", "3 players", "4 players"),
+                        if (roomPlayers == 1) "1 player" else "$roomPlayers players",
+                    ) {
+                        vm.set("roomPlayers", it.substringBefore(' '))
+                        vm.set("bookGuests", it.substringBefore(' '))
+                    }
+                AppText(
+                    if (kind == "GoKart")
+                        "Kart sessions: 10, 15, 30 or 60 minutes · One driver per kart"
+                    else if (kind == "VIPRoom")
+                        "Choose your group · Price for the whole room · 3 guests use a 4-PC room"
+                    else if (kind == "Racing")
+                        "Standard or private VIP cockpit · One driver per simulator"
+                    else "Rates per hour · Availability confirmed when you reserve",
+                    color = Muted,
+                    fontSize = 11.sp,
+                )
             }
-            if (products.isEmpty())
-                item { EmptyState("Nothing here yet", "Try another search or category.") }
         }
+        items(resources, key = { it.text("id") }) { r ->
+            SurfaceCard {
+                if (kind in listOf("PC", "VIPRoom")) {
+                    AppIcon(
+                        if (kind == "VIPRoom") Icons.Outlined.MeetingRoom
+                        else Icons.Outlined.DesktopWindows,
+                        null,
+                        Modifier.size(44.dp),
+                        tint = if (r.text("zone") == "VIP") Violet else Lime,
+                    )
+                    Chip(r.text("zone"), if (r.text("zone") == "VIP") Violet else Lime)
+                } else {
+                    ActivityArt(kind, Modifier.fillMaxWidth().height(120.dp))
+                    if (kind == "Racing")
+                        Chip(r.text("zone"), if (r.text("zone") == "VIP") Violet else Aqua)
+                }
+                AppText(r.text("name"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                AppText(
+                    "${area.floor} · ${area.label} · Up to ${r.optInt("capacity",1)} player${if(r.optInt("capacity",1)>1)"s" else ""}",
+                    color = Aqua,
+                    fontSize = 11.sp,
+                )
+                AppText(r.text("description"), color = Muted, fontSize = 12.sp)
+                AppText(
+                    if (kind == "GoKart") "${money(bookingPrice(r.optInt("rate"),15))} / 15 min"
+                    else if (kind == "VIPRoom") "${money(r.optInt("rate"))} / room / hr"
+                    else "${money(r.optInt("rate"))} / hr",
+                    color = if (kind == "PC") Lime else Violet,
+                    fontWeight = FontWeight.Bold,
+                )
+                Button(
+                    onClick = {
+                        vm.resetBookingDraft(r.text("id"))
+                        vm.set("bookGuests", if (kind == "VIPRoom") roomPlayers.toString() else "1")
+                        vm.set("dialog", "book")
+                    },
+                    enabled = r.text("status") == "Available",
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    AppText(if (r.text("status") == "Available") "Reserve" else r.text("status"))
+                }
+            }
+        }
+        if (resources.isEmpty())
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyState(
+                    "No spaces to show",
+                    if (vm.loading) "Loading your club…"
+                    else if (kind == "VIPRoom")
+                        "Private rooms need the 1.7 cloud inventory update. Then refresh Play."
+                    else "New spaces are coming. Try another activity or refresh.",
+                )
+            }
     }
 }
 
@@ -1050,6 +994,12 @@ fun BookingCard(vm: AppViewModel, b: JSONObject) {
 @Composable
 fun BookingsScreen(vm: AppViewModel) {
     val tab = vm.field("bookingTab", "Spaces")
+    val cafeOrders = vm.confirmedCafeOrders()
+    val confirmedOrderIds = cafeOrders.map { it.text("id") }.toSet()
+    val payments =
+        vm.rows("test_payments").filter {
+            it.text("kind") != "Order" || it.text("source_id") in confirmedOrderIds
+        }
     LazyColumn(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -1064,7 +1014,7 @@ fun BookingsScreen(vm: AppViewModel) {
         when (tab) {
             "Payments" -> {
                 item { TestModeNotice() }
-                items(vm.rows("test_payments"), key = { it.text("id") }) { p ->
+                items(payments, key = { it.text("id") }) { p ->
                     SurfaceCard {
                         Chip(p.text("status"))
                         AppText(
@@ -1076,7 +1026,7 @@ fun BookingsScreen(vm: AppViewModel) {
                         }
                     }
                 }
-                if (vm.rows("test_payments").isEmpty())
+                if (payments.isEmpty())
                     item {
                         EmptyState("No test transactions yet", "Test payments will appear here.")
                     }
@@ -1087,7 +1037,8 @@ fun BookingsScreen(vm: AppViewModel) {
                     item { EmptyState("No reservations yet", "Your next session starts in Play.") }
             }
             "Orders" -> {
-                items(vm.rows("orders"), key = { it.text("id") }) { o ->
+                item { PickupAlertPermission(vm) }
+                items(cafeOrders, key = { it.text("id") }) { o ->
                     SurfaceCard {
                         Chip(o.text("status"), Orange)
                         AppText("Order #${o.text("id").take(8)}", fontWeight = FontWeight.Bold)
@@ -1097,13 +1048,9 @@ fun BookingsScreen(vm: AppViewModel) {
                                 AppText("${it.optInt("qty")} × ${it.text("name")}", color = Muted)
                             }
                         AppText(
-                            "${money(o.optInt("total"))} · ${if(o.optBoolean("paid"))"Paid" else "Pay at counter"}"
+                            "${money(o.optInt("total"))} · ${if(o.optBoolean("paid"))"Paid" else if(o.text("status")=="Cancelled")"Refunded" else "Paid"}"
                         )
-                        if (o.text("status") == "Pending" && !o.optBoolean("paid")) {
-                            TestPayButton(vm, "Order", o.text("id"))
-                            if (o.text("hold_expires_at").isNotBlank())
-                                HoldCountdown(vm, o.text("hold_expires_at"))
-                        }
+                        OrderPickupDetails(vm, o)
                         if (
                             vm.rows("test_payments").any {
                                 it.text("source_id") == o.text("id") &&
@@ -1111,13 +1058,6 @@ fun BookingsScreen(vm: AppViewModel) {
                             }
                         )
                             Chip("Test payment", Aqua)
-                        if (o.text("status") == "Pending" && !o.optBoolean("paid"))
-                            TextButton(
-                                onClick = { vm.action("cancel_order", obj("id" to o.text("id"))) },
-                                enabled = !vm.busy,
-                            ) {
-                                AppText("Cancel order")
-                            }
                         TextButton(
                             onClick = {
                                 vm.rows("order_items")
@@ -1132,7 +1072,7 @@ fun BookingsScreen(vm: AppViewModel) {
                         }
                     }
                 }
-                if (vm.rows("orders").isEmpty())
+                if (cafeOrders.isEmpty())
                     item {
                         EmptyState("Your cravings belong here", "Explore drinks and food in Café.")
                     }
@@ -1159,7 +1099,7 @@ fun BookingsScreen(vm: AppViewModel) {
                                 vm.set("dialog", "receipt")
                             }
                         ) {
-                            AppText("View / share receipt")
+                            AppText("View receipt")
                         }
                     }
                 }

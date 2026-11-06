@@ -90,7 +90,14 @@ class RevisionStateTest {
         launch()
         val bill=obj("id" to "demo-2026-001","kind" to "Booking","status" to "Paid","created_at" to "2026-10-11T02:35:00Z","environment" to "test","method" to "Test TNG","payment_reference" to "TEST-DEMO-RECEIPT","subtotal" to 1200,"discount" to 300,"total" to 900,"points" to 9,"details" to obj("customer_name" to "Student 李明","activity" to "Racing simulator","resource" to "VIP Racing Simulator 01","zone" to "VIP","starts_at" to "2026-10-12T04:00:00Z","ends_at" to "2026-10-12T05:30:00Z","duration_minutes" to 90,"players" to 1,"hourly_rate" to 800,"promo_code" to "SCHOOL25"))
         change{it.set("receipt",bill.toString());it.set("dialog","receipt")}
-        compose.onNodeWithText("Duration: 90 minutes").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("90 minutes").assertIsDisplayed()
+        compose.onNodeWithText("12 Oct 2026").assertIsDisplayed()
+        compose.onNodeWithText("12:00 PM - 1:30 PM").assertIsDisplayed()
+        compose.onNodeWithText("RM 9.00").assertIsDisplayed()
+        compose.onNodeWithText("Customer: Student 李明").assertDoesNotExist()
+        compose.onNodeWithText("Reference: TEST-DEMO-RECEIPT").assertDoesNotExist()
+        compose.onNodeWithText("Subtotal: RM 12.00").assertDoesNotExist()
+        capture("receipt-app-details")
         compose.onNodeWithText("Share PDF receipt").performScrollTo().assertIsDisplayed()
         val lines=receiptLines(bill);assertTrue(lines.any{it.contains("Student 李明")});assertTrue(lines.contains("TOTAL: RM 9.00"))
         val file=createReceiptPdf(app,bill);assertTrue(file.length()>1000)
@@ -99,7 +106,10 @@ class RevisionStateTest {
         instrument.uiAutomation.executeShellCommand("mkdir -p /sdcard/Download/CTFLY-revision").close();Thread.sleep(100)
         instrument.uiAutomation.executeShellCommand("cp ${dir.absolutePath}/receipt-native.pdf /sdcard/Download/CTFLY-revision/receipt-native.pdf").close();Thread.sleep(100)
         instrument.uiAutomation.executeShellCommand("cp ${dir.absolutePath}/receipt-native.png /sdcard/Download/CTFLY-revision/receipt-native.png").close();Thread.sleep(100)
-        capture("receipt-app-details")
+        // Cross-midnight bookings show the next date instead of an ambiguous time range.
+        bill.getJSONObject("details").put("starts_at","2026-10-14T15:30:00Z").put("ends_at","2026-10-14T17:00:00Z")
+        change{it.set("receipt",bill.toString())}
+        compose.onNodeWithText("11:30 PM - 15 Oct · 1:00 AM").assertIsDisplayed()
     }
     @Test fun sessionVaultKeepsEncryptedSessionAcrossApiInstances() {
         val vault=SessionVault(app);vault.clear()

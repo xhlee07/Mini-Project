@@ -45,6 +45,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            if (BuildConfig.STAFF_APP && vm.hasAccount) item { StaffSecuritySettings(vm) }
             item {
                 SurfaceCard {
                     SectionTitle("Language", "Changes immediately and stays on this device.")
@@ -217,7 +218,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun FeedbackCard(feedback: JSONObject, vm: AppViewModel? = null) {
+fun FeedbackCard(feedback: JSONObject, vm: AppViewModel? = null) {
     SurfaceCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppText(
@@ -244,7 +245,12 @@ private fun FeedbackCard(feedback: JSONObject, vm: AppViewModel? = null) {
                             vm.action(
                                 "feedback_status",
                                 obj("id" to feedback.text("id"), "status" to "Reviewed"),
-                            )
+                            ) {
+                                vm.set(
+                                    "feedbackHistoryRevision",
+                                    java.util.UUID.randomUUID().toString(),
+                                )
+                            }
                         },
                         enabled = !vm.busy,
                         modifier = Modifier.testTag("reviewFeedback-${feedback.text("id")}"),
@@ -256,40 +262,18 @@ private fun FeedbackCard(feedback: JSONObject, vm: AppViewModel? = null) {
                         vm.action(
                             "feedback_status",
                             obj("id" to feedback.text("id"), "status" to "Resolved"),
-                        )
+                        ) {
+                            vm.set(
+                                "feedbackHistoryRevision",
+                                java.util.UUID.randomUUID().toString(),
+                            )
+                        }
                     },
                     enabled = !vm.busy,
                     modifier = Modifier.testTag("resolveFeedback-${feedback.text("id")}"),
                 ) {
                     AppText("Mark resolved")
                 }
-            }
-    }
-}
-
-@Composable
-fun FeedbackInboxScreen(vm: AppViewModel) {
-    val filter = vm.field("feedbackFilter", "All")
-    val feedback = vm.rows("feedback").filter { filter == "All" || it.text("status") == filter }
-    LazyColumn(
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        item {
-            SectionTitle("Customer feedback", "Suggestions and issues from the app.", "Refresh") {
-                vm.refresh()
-            }
-            TextButton(onClick = { vm.set("page", "Operations") }) { AppText("Back to operations") }
-        }
-        item {
-            FilterRow(listOf("All", "New", "Reviewed", "Resolved"), filter) {
-                vm.set("feedbackFilter", it)
-            }
-        }
-        items(feedback, key = { it.text("id") }) { FeedbackCard(it, vm) }
-        if (feedback.isEmpty())
-            item {
-                EmptyState("No feedback here yet", "New submissions will appear after refresh.")
             }
     }
 }

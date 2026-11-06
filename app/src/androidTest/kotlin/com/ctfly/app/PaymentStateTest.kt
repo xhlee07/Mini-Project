@@ -22,10 +22,85 @@ class PaymentFixtureGateway(
 ) : ClubGateway by delegate {
     private val results = mutableMapOf<String, JSONObject>()
     val paymentRequests = mutableListOf<String>()
+    val cancellationRequests = mutableListOf<String>()
     var failAfterSuccessOnce = false
+    var failCancellation = false
+    var confirmDelayMillis = 0L
 
     override suspend fun rpc(name: String, body: JSONObject, authenticated: Boolean): JSONObject {
         if (name == "ctfly_snapshot") fixture.put("server_time", Instant.now().toString())
+        if (name == "ctfly_action" && body.text("p_action") == "order") {
+            val request = body.text("p_request")
+            results[request]?.let {
+                return JSONObject(it.toString())
+            }
+            val id = UUID.randomUUID().toString()
+            var total = 0
+            body.getJSONObject("p_data").rows("items").forEach { item ->
+                val product = fixture.rows("products").first { it.text("id") == item.text("id") }
+                val qty = item.optInt("qty")
+                total += product.optInt("price") * qty
+                product.put("stock", product.optInt("stock") - qty)
+                fixture
+                    .getJSONArray("order_items")
+                    .put(
+                        obj(
+                            "order_id" to id,
+                            "product_id" to product.text("id"),
+                            "name" to product.text("name"),
+                            "price" to product.optInt("price"),
+                            "qty" to qty,
+                        )
+                    )
+            }
+            fixture
+                .getJSONArray("orders")
+                .put(
+                    obj(
+                        "id" to id,
+                        "user_id" to fixture.getJSONObject("profile").text("id"),
+                        "status" to "Pending",
+                        "paid" to false,
+                        "total" to total,
+                        "hold_expires_at" to Instant.now().plusSeconds(600).toString(),
+                    )
+                )
+            return obj("id" to id, "message" to "Order sent. Pay at the counter.").also {
+                results[request] = JSONObject(it.toString())
+            }
+        }
+        if (name == "ctfly_action" && body.text("p_action") == "cancel_order") {
+            val request = body.text("p_request")
+            cancellationRequests.add(request)
+            if (failCancellation) throw java.io.IOException("Offline")
+            results[request]?.let {
+                return JSONObject(it.toString())
+            }
+            val order =
+                fixture.rows("orders").first {
+                    it.text("id") == body.getJSONObject("p_data").text("id")
+                }
+            if (order.optBoolean("paid") || order.text("status") != "Pending")
+                throw ApiFailure(400, "Only your pending unpaid order can be cancelled.")
+            order.put("status", "Cancelled")
+            fixture
+                .rows("order_items")
+                .filter { it.text("order_id") == order.text("id") }
+                .forEach { item ->
+                    fixture
+                        .rows("products")
+                        .find { it.text("id") == item.text("product_id") }
+                        ?.let { it.put("stock", it.optInt("stock") + item.optInt("qty")) }
+                }
+            fixture
+                .rows("test_payments")
+                .filter {
+                    it.text("source_id") == order.text("id") &&
+                        it.text("status") in listOf("Pending", "Processing")
+                }
+                .forEach { it.put("status", "Cancelled") }
+            return obj("message" to "Saved").also { results[request] = JSONObject(it.toString()) }
+        }
         if (name != "ctfly_action" || !body.text("p_action").startsWith("test_"))
             return delegate.rpc(name, body, authenticated)
         val request = body.text("p_request")
@@ -35,11 +110,15 @@ class PaymentFixtureGateway(
         }
         val d = body.getJSONObject("p_data")
         val action = body.text("p_action")
-        if(action=="test_quote" && d.text("promo_code")=="BAD") throw ApiFailure(400,"Promo code does not exist. Check the code.")
+        if (action == "test_quote" && d.text("promo_code") == "BAD")
+            throw ApiFailure(400, "Promo code does not exist. Check the code.")
         android.util.Log.i("PaymentFixture", "action=$action data=$d")
         var response: JSONObject
         if (action in listOf("test_quote", "test_checkout")) {
             val source = fixture.rows("orders").first { it.text("id") == d.text("id") }
+            check(!source.optBoolean("paid") && source.text("status") == "Pending") {
+                "Already paid or cancelled."
+            }
             val quote =
                 obj(
                     "kind" to "Order",
@@ -76,6 +155,10 @@ class PaymentFixtureGateway(
                 response = obj("payment" to pay, "message" to "Test mode. No money was charged.")
             }
         } else {
+            if (
+                action == "test_resolve" && d.text("outcome") == "Success" && confirmDelayMillis > 0
+            )
+                kotlinx.coroutines.delay(confirmDelayMillis)
             val pay = fixture.rows("test_payments").first { it.text("id") == d.text("id") }
             if (action == "test_refund") {
                 pay.put("status", "Refunded")
@@ -217,10 +300,13 @@ class PaymentStateTest {
     fun promoCodeCanBeCorrectedAfterQuoteError() {
         Assume.assumeFalse(BuildConfig.STAFF_APP)
         launch()
-        change {it.openCheckout("Order",orderId)}
+        change { it.openCheckout("Order", orderId) }
         compose.onNodeWithText("Promo code (optional)").performScrollTo().performTextInput("BAD")
         compose.onNodeWithText("Apply / remove code").performClick()
-        compose.onNodeWithText("Promo code does not exist. Check the code.").performScrollTo().assertIsDisplayed()
+        compose
+            .onNodeWithText("Promo code does not exist. Check the code.")
+            .performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText("Promo code (optional)").performScrollTo().performTextClearance()
         compose.onNodeWithText("Apply / remove code").performClick()
         compose.onNodeWithTag("start-test-payment").performScrollTo().assertIsDisplayed()
@@ -260,7 +346,7 @@ class PaymentStateTest {
     }
 
     @Test
-    fun failureProcessingCancellationAndTransportRetryKeepSingleReceipt() {
+    fun failureProcessingAndTransportRetryKeepSingleReceipt() {
         Assume.assumeFalse(BuildConfig.STAFF_APP)
         launch()
         start("FPX")
@@ -282,9 +368,6 @@ class PaymentStateTest {
         capture("payment-processing")
         scenario!!.recreate()
         compose.waitForIdle()
-        compose.onNodeWithText("Cancel test payment").performScrollTo().performClick()
-        compose.onNodeWithText("Test payment cancelled").performScrollTo().assertIsDisplayed()
-        start("TNG")
         gateway.failAfterSuccessOnce = true
         compose.onNodeWithTag("confirm-test-payment").performScrollTo().performClick()
         compose.waitUntil(5000) { !gateway.failAfterSuccessOnce }
@@ -320,7 +403,7 @@ class PaymentStateTest {
         Assume.assumeTrue(BuildConfig.STAFF_APP)
         launch()
         change { it.set("page", "Transactions") }
-        compose.onNodeWithText("Test transactions").assertIsDisplayed()
+        compose.onNodeWithText("Payment records, references and receipts.").assertIsDisplayed()
         capture("payment-staff-transactions")
         change { vm ->
             vm.resumeCheckout(vm.rows("test_payments").first { it.text("status") == "Succeeded" })

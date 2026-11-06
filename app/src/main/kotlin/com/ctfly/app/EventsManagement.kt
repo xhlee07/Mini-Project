@@ -164,7 +164,7 @@ fun StaffEventsScreen(vm: AppViewModel) {
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                AppText("Competitions & offers", style = MaterialTheme.typography.headlineMedium)
+                StaffModuleHeader(vm, "Competitions & offers")
                 FilterRow(listOf("Competitions", "Promo codes"), tab) {
                     vm.set("staffEventsTab", it)
                 }
@@ -179,8 +179,14 @@ fun StaffEventsScreen(vm: AppViewModel) {
                 }
             }
         }
+        item {
+            StaffDateFilter(vm, "eventHistoryDay", "Competition / offer start date · Malaysia time")
+        }
         if (tab == "Competitions") {
-            items(vm.rows("events"), key = { it.text("id") }) { e ->
+            items(
+                vm.rows("events").onStaffDay(vm, "eventHistoryDay", "starts_at"),
+                key = { it.text("id") },
+            ) { e ->
                 SurfaceCard {
                     EventPoster(e.text("poster_url"), Modifier.fillMaxWidth().height(160.dp))
                     Chip(e.text("status"), Aqua)
@@ -210,12 +216,15 @@ fun StaffEventsScreen(vm: AppViewModel) {
                         }
                 }
             }
-            if (vm.rows("events").isEmpty())
+            if (vm.rows("events").onStaffDay(vm, "eventHistoryDay", "starts_at").isEmpty())
                 item {
                     EmptyState("No competitions yet", "Create a draft or publish your next event.")
                 }
         } else {
-            items(vm.rows("promotions"), key = { it.text("id") }) { p ->
+            items(
+                vm.rows("promotions").onStaffDay(vm, "eventHistoryDay", "starts_at"),
+                key = { it.text("id") },
+            ) { p ->
                 SurfaceCard {
                     AppText(
                         p.text("code"),
@@ -260,7 +269,7 @@ fun StaffEventsScreen(vm: AppViewModel) {
                     }
                 }
             }
-            if (vm.rows("promotions").isEmpty())
+            if (vm.rows("promotions").onStaffDay(vm, "eventHistoryDay", "starts_at").isEmpty())
                 item {
                     EmptyState(
                         "No promo codes yet",
